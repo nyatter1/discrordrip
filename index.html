@@ -311,6 +311,16 @@
                 <span id="current-chat-name">Select a chat</span>
                 <button id="add-user-to-group" class="hidden btn-secondary" style="padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; color: white;">Add User</button>
             </div>
+            <div id="message-request-banner" class="hidden" style="background: var(--bg-tertiary); padding: 15px; border-bottom: 1px solid var(--bg-secondary); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: bold; margin-bottom: 4px;">Message Request</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">If you accept, they will be able to message you.</div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="accept-msg-request-btn" class="btn" style="background: var(--success); padding: 6px 12px; font-size: 12px;">Accept</button>
+                    <button id="decline-msg-request-btn" class="btn" style="background: var(--danger); padding: 6px 12px; font-size: 12px;">Decline</button>
+                </div>
+            </div>
             <div class="messages" id="messages-container">
                 <!-- Messages load here -->
             </div>
@@ -327,14 +337,19 @@
                 <span style="font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 20px;">👋</span> Friends</span>
                 <div style="width: 1px; height: 24px; background: var(--bg-secondary); margin: 0 10px;"></div>
                 <div style="display: flex; gap: 15px; font-size: 14px; color: var(--text-muted); align-items: center;">
-                    <span style="cursor: pointer; color: var(--text-normal); font-weight: 500;">All Friends</span>
+                    <span id="tab-all-friends" style="cursor: pointer; color: var(--text-normal); font-weight: 500;">All Friends</span>
+                    <span id="tab-pending-friends" style="cursor: pointer; font-weight: 500;">Pending</span>
                     <button id="add-friend-header-btn" style="background: var(--success); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add Friend</button>
                 </div>
             </div>
             <div style="padding: 20px; flex: 1; overflow-y: auto;">
-                <div style="font-size: 12px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 16px;">All Friends — <span id="friends-count">0</span></div>
                 <div id="friends-list-container">
-                    <!-- Friends list will be rendered here -->
+                    <div style="font-size: 12px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 16px;">All Friends — <span id="friends-count">0</span></div>
+                    <div id="friends-list-content"></div>
+                </div>
+                <div id="pending-list-container" class="hidden">
+                    <div style="font-size: 12px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 16px;">Pending Requests — <span id="pending-count">0</span></div>
+                    <div id="pending-list-content"></div>
                 </div>
             </div>
         </div>
@@ -696,24 +711,37 @@
                 if(isFriend(uid)) {
                     addBtn.textContent = 'Friends ✓';
                     addBtn.disabled = true;
+                } else if (currentUserData && currentUserData.friendRequests && currentUserData.friendRequests.includes(uid)) {
+                    addBtn.textContent = 'Accept Request';
+                    addBtn.disabled = false;
+                    addBtn.onclick = async () => {
+                        await updateDoc(doc(db, 'users', auth.currentUser.uid), { 
+                            friends: arrayUnion(uid),
+                            friendRequests: arrayRemove(uid)
+                        });
+                        await updateDoc(doc(db, 'users', uid), { friends: arrayUnion(auth.currentUser.uid) });
+                        addBtn.textContent = 'Friends ✓';
+                        addBtn.disabled = true;
+                    };
+                } else if (user.friendRequests && user.friendRequests.includes(auth.currentUser.uid)) {
+                    addBtn.textContent = 'Request Sent';
+                    addBtn.disabled = true;
                 } else {
                     addBtn.textContent = 'Add Friend';
                     addBtn.disabled = false;
+                    addBtn.onclick = async () => {
+                        try {
+                            await updateDoc(doc(db, 'users', uid), { friendRequests: arrayUnion(auth.currentUser.uid) });
+                            addBtn.textContent = 'Request Sent';
+                            addBtn.disabled = true;
+                        } catch (err) {
+                            alert("Failed to send friend request.");
+                        }
+                    };
                 }
             }
             profileModal.style.display = 'flex';
         }
-
-        document.getElementById('pm-add-btn').addEventListener('click', async () => {
-            if(!viewingProfileUid) return;
-            await updateDoc(doc(db, 'users', auth.currentUser.uid), { friends: arrayUnion(viewingProfileUid) });
-            // Also add us to their friends list for simplicity
-            await updateDoc(doc(db, 'users', viewingProfileUid), { friends: arrayUnion(auth.currentUser.uid) });
-            currentUserData.friends.push(viewingProfileUid);
-            document.getElementById('pm-add-btn').textContent = 'Friends ✓';
-            document.getElementById('pm-add-btn').disabled = true;
-            if(currentChatId) openChat(currentChatId, document.getElementById('current-chat-name').textContent, false); // Refresh input state
-        });
 
         document.getElementById('pm-msg-btn').addEventListener('click', async () => {
             if(!viewingProfileUid) return;
@@ -730,8 +758,30 @@
             document.getElementById('friends-area').classList.remove('hidden');
             document.querySelectorAll('.channel').forEach(el => el.classList.remove('active'));
             document.getElementById('friends-tab-btn').classList.add('active');
+            
+            document.getElementById('tab-all-friends').style.color = 'var(--text-normal)';
+            document.getElementById('tab-pending-friends').style.color = 'var(--text-muted)';
+            document.getElementById('friends-list-container').classList.remove('hidden');
+            document.getElementById('pending-list-container').classList.add('hidden');
+            
             renderFriendsList();
         }
+
+        document.getElementById('tab-all-friends').addEventListener('click', () => {
+            document.getElementById('tab-all-friends').style.color = 'var(--text-normal)';
+            document.getElementById('tab-pending-friends').style.color = 'var(--text-muted)';
+            document.getElementById('friends-list-container').classList.remove('hidden');
+            document.getElementById('pending-list-container').classList.add('hidden');
+            renderFriendsList();
+        });
+
+        document.getElementById('tab-pending-friends').addEventListener('click', () => {
+            document.getElementById('tab-all-friends').style.color = 'var(--text-muted)';
+            document.getElementById('tab-pending-friends').style.color = 'var(--text-normal)';
+            document.getElementById('friends-list-container').classList.add('hidden');
+            document.getElementById('pending-list-container').classList.remove('hidden');
+            renderPendingList();
+        });
 
         document.getElementById('friends-tab-btn').addEventListener('click', showFriendsView);
 
@@ -787,23 +837,18 @@
             const uid = prompt("Enter the User ID of the friend you want to add:");
             if (!uid || uid === auth.currentUser.uid) return;
             
-            // Check if user exists (in a real app we'd query, here we just try to update)
             try {
-                await updateDoc(doc(db, 'users', auth.currentUser.uid), { friends: arrayUnion(uid) });
-                await updateDoc(doc(db, 'users', uid), { friends: arrayUnion(auth.currentUser.uid) });
-                if (!currentUserData.friends.includes(uid)) {
-                    currentUserData.friends.push(uid);
-                }
-                alert("Friend added!");
-                renderFriendsList();
+                // Send friend request
+                await updateDoc(doc(db, 'users', uid), { friendRequests: arrayUnion(auth.currentUser.uid) });
+                alert("Friend request sent!");
             } catch (err) {
-                alert("Failed to add friend. Make sure the UID is correct.");
+                alert("Failed to send friend request. Make sure the UID is correct.");
             }
         });
 
         function renderFriendsList() {
             if (!currentUserData || !currentUserData.friends) return;
-            const container = document.getElementById('friends-list-container');
+            const container = document.getElementById('friends-list-content');
             container.innerHTML = '';
             document.getElementById('friends-count').textContent = currentUserData.friends.length;
             
@@ -838,6 +883,109 @@
             });
         }
 
+        async function renderPendingList() {
+            if (!currentUserData) return;
+            const container = document.getElementById('pending-list-content');
+            container.innerHTML = '';
+            
+            const friendRequests = currentUserData.friendRequests || [];
+            
+            // Also find message requests
+            const q = query(collection(db, 'chats'), where('members', 'array-contains', auth.currentUser.uid), where('isRequest', '==', true));
+            const snap = await getDocs(q);
+            const messageRequests = [];
+            snap.forEach(doc => {
+                const chat = doc.data();
+                if (chat.requesterId !== auth.currentUser.uid) {
+                    messageRequests.push({ chatId: doc.id, ...chat });
+                }
+            });
+
+            document.getElementById('pending-count').textContent = friendRequests.length + messageRequests.length;
+            
+            friendRequests.forEach(requesterId => {
+                const user = usersCache[requesterId];
+                if (!user) return;
+                
+                const div = document.createElement('div');
+                div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 16px 10px; border-top: 1px solid var(--bg-secondary);';
+                
+                div.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="document.dispatchEvent(new CustomEvent('openProfile', {detail: '${user.uid}'}))">
+                        <div class="channel-avatar" style="width: 32px; height: 32px;">
+                            <img src="${user.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png'}">
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-weight: bold; font-size: 16px;">${user.displayName}</span>
+                            <span style="font-size: 12px; color: var(--text-muted);">Incoming Friend Request</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="accept-btn" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-secondary); display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--success);" title="Accept">✓</div>
+                        <div class="decline-btn" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-secondary); display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--danger);" title="Decline">✕</div>
+                    </div>
+                `;
+                
+                div.querySelector('.accept-btn').onclick = async () => {
+                    await updateDoc(doc(db, 'users', auth.currentUser.uid), { 
+                        friends: arrayUnion(requesterId),
+                        friendRequests: arrayRemove(requesterId)
+                    });
+                    await updateDoc(doc(db, 'users', requesterId), { friends: arrayUnion(auth.currentUser.uid) });
+                    if (!currentUserData.friends) currentUserData.friends = [];
+                    currentUserData.friends.push(requesterId);
+                    currentUserData.friendRequests = currentUserData.friendRequests.filter(id => id !== requesterId);
+                    renderPendingList();
+                };
+                
+                div.querySelector('.decline-btn').onclick = async () => {
+                    await updateDoc(doc(db, 'users', auth.currentUser.uid), { friendRequests: arrayRemove(requesterId) });
+                    currentUserData.friendRequests = currentUserData.friendRequests.filter(id => id !== requesterId);
+                    renderPendingList();
+                };
+                
+                container.appendChild(div);
+            });
+
+            messageRequests.forEach(req => {
+                const otherUid = req.members.find(id => id !== auth.currentUser.uid);
+                if (isFriend(otherUid)) return; // Skip if already friends
+                const user = usersCache[otherUid];
+                if (!user) return;
+                
+                const div = document.createElement('div');
+                div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 16px 10px; border-top: 1px solid var(--bg-secondary);';
+                
+                div.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="document.dispatchEvent(new CustomEvent('openProfile', {detail: '${user.uid}'}))">
+                        <div class="channel-avatar" style="width: 32px; height: 32px;">
+                            <img src="${user.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png'}">
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-weight: bold; font-size: 16px;">${user.displayName}</span>
+                            <span style="font-size: 12px; color: var(--text-muted);">Message Request</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="accept-msg-btn" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-secondary); display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--success);" title="Accept">✓</div>
+                        <div class="decline-msg-btn" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-secondary); display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--danger);" title="Decline">✕</div>
+                    </div>
+                `;
+                
+                div.querySelector('.accept-msg-btn').onclick = async () => {
+                    await updateDoc(doc(db, 'chats', req.chatId), { isRequest: false });
+                    renderPendingList();
+                };
+                
+                div.querySelector('.decline-msg-btn').onclick = async () => {
+                    await deleteDoc(doc(db, 'chats', req.chatId));
+                    renderPendingList();
+                };
+                
+                container.appendChild(div);
+            });
+        }
+
         document.addEventListener('messageUser', async (e) => {
             const uid = e.detail;
             const user = usersCache[uid];
@@ -847,22 +995,35 @@
             const q = query(collection(db, 'chats'), where('isGroup', '==', false), where('members', 'array-contains', auth.currentUser.uid));
             const snap = await getDocs(q);
             let existingChatId = null;
+            let existingChatData = null;
             snap.forEach(doc => {
                 const chat = doc.data();
                 if (chat.members.includes(uid)) {
                     existingChatId = doc.id;
+                    existingChatData = chat;
                 }
             });
 
             if (existingChatId) {
-                openChat(existingChatId, user.displayName, false, false, uid);
+                openChat(existingChatId, user.displayName, false, false, uid, existingChatData.isRequest, existingChatData.requesterId);
             } else {
-                const newChatRef = await addDoc(collection(db, 'chats'), {
-                    isGroup: false,
-                    members: [auth.currentUser.uid, uid],
-                    updatedAt: serverTimestamp()
-                });
-                openChat(newChatRef.id, user.displayName, false, false, uid);
+                if (isFriend(uid)) {
+                    const newChatRef = await addDoc(collection(db, 'chats'), {
+                        isGroup: false,
+                        members: [auth.currentUser.uid, uid],
+                        updatedAt: serverTimestamp()
+                    });
+                    openChat(newChatRef.id, user.displayName, false, false, uid);
+                } else {
+                    const newChatRef = await addDoc(collection(db, 'chats'), {
+                        isGroup: false,
+                        members: [auth.currentUser.uid, uid],
+                        updatedAt: serverTimestamp(),
+                        isRequest: true,
+                        requesterId: auth.currentUser.uid
+                    });
+                    openChat(newChatRef.id, user.displayName, false, false, uid, true, auth.currentUser.uid);
+                }
             }
         });
 
@@ -925,7 +1086,7 @@
                         </div>
                         <span>${chatName}</span>
                     `;
-                    div.onclick = () => openChat(docSnap.id, chatName, chat.isGroup, false, otherUid);
+                    div.onclick = () => openChat(docSnap.id, chatName, chat.isGroup, false, otherUid, chat.isRequest, chat.requesterId);
                     list.appendChild(div);
                 });
             });
@@ -944,26 +1105,58 @@
 
         // Messaging
         let cachedMessages = [];
-        function openChat(chatId, chatName, isGroup, isMainServer = false, otherUid = null) {
+        let currentChatIsRequest = false;
+        let currentChatRequesterId = null;
+
+        function openChat(chatId, chatName, isGroup, isMainServer = false, otherUid = null, isRequest = false, requesterId = null) {
             document.getElementById('chat-area').classList.remove('hidden');
             document.getElementById('friends-area').classList.add('hidden');
             
             currentChatId = chatId;
+            currentChatIsRequest = isRequest;
+            currentChatRequesterId = requesterId;
             document.getElementById('current-chat-name').textContent = chatName;
             const input = document.getElementById('message-input');
             
             // Friend Check for DMs
+            const banner = document.getElementById('message-request-banner');
             if (!isGroup && !isMainServer && otherUid && otherUid !== auth.currentUser.uid) {
                 if (!isFriend(otherUid)) {
-                    input.disabled = true;
-                    input.placeholder = "You must be friends to message this user.";
+                    if (isRequest) {
+                        if (requesterId === auth.currentUser.uid) {
+                            input.disabled = false;
+                            input.placeholder = `Message ${chatName}... (Request Pending)`;
+                            banner.classList.add('hidden');
+                        } else {
+                            input.disabled = true;
+                            input.placeholder = "Accept message request to reply.";
+                            banner.classList.remove('hidden');
+                            document.getElementById('accept-msg-request-btn').onclick = async () => {
+                                await updateDoc(doc(db, 'chats', chatId), { isRequest: false });
+                                banner.classList.add('hidden');
+                                input.disabled = false;
+                                input.placeholder = `Message ${chatName}...`;
+                            };
+                            document.getElementById('decline-msg-request-btn').onclick = async () => {
+                                await deleteDoc(doc(db, 'chats', chatId));
+                                banner.classList.add('hidden');
+                                document.getElementById('home-btn').click();
+                            };
+                        }
+                    } else {
+                        input.disabled = false;
+                        input.placeholder = `Message ${chatName}...`;
+                        banner.classList.add('hidden');
+                    }
                 } else {
                     input.disabled = false;
                     input.placeholder = `Message ${chatName}...`;
+                    banner.classList.add('hidden');
                 }
             } else {
                 input.disabled = false;
                 input.placeholder = `Message ${chatName}...`;
+                banner.classList.add('hidden');
             }
             
             const addUserBtn = document.getElementById('add-user-to-group');
@@ -1002,6 +1195,11 @@
                 div.className = 'message';
                 
                 const time = msg.createdAt ? new Date(msg.createdAt.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Sending...';
+                
+                let undeliveredHtml = '';
+                if (currentChatIsRequest && currentChatRequesterId === auth.currentUser.uid && msg.senderId === auth.currentUser.uid) {
+                    undeliveredHtml = `<span style="color: var(--danger); font-size: 10px; margin-left: 10px;">(Undelivered - Request Pending)</span>`;
+                }
 
                 div.innerHTML = `
                     <div class="msg-avatar" onclick="document.dispatchEvent(new CustomEvent('openProfile', {detail: '${msg.senderId}'}))">
@@ -1011,6 +1209,7 @@
                         <div class="msg-header">
                             <span class="msg-author" onclick="document.dispatchEvent(new CustomEvent('openProfile', {detail: '${msg.senderId}'}))">${user.displayName}</span>
                             <span class="msg-time">${time}</span>
+                            ${undeliveredHtml}
                         </div>
                         <div class="msg-text">${msg.text}</div>
                     </div>
