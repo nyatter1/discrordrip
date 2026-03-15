@@ -325,8 +325,14 @@
                 <!-- Messages load here -->
             </div>
             <div class="chat-input">
-                <form id="message-form">
-                    <input type="text" id="message-input" placeholder="Message..." disabled autocomplete="off">
+                <div id="attachment-preview-container" class="hidden" style="margin-bottom: 10px; position: relative; display: inline-block;">
+                    <img id="attachment-preview" src="" style="max-height: 150px; border-radius: 8px; border: 1px solid var(--bg-tertiary);">
+                    <button id="remove-attachment-btn" style="position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-weight: bold; display: flex; justify-content: center; align-items: center;">&times;</button>
+                </div>
+                <form id="message-form" style="display: flex; gap: 10px; align-items: center; background: #40444b; padding: 10px 16px; border-radius: 8px;">
+                    <button type="button" id="attachment-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 24px; padding: 0 5px; line-height: 1;">+</button>
+                    <input type="file" id="attachment-input" accept="image/*" style="display: none;">
+                    <input type="text" id="message-input" placeholder="Message..." disabled autocomplete="off" style="flex: 1; background: transparent; border: none; color: var(--text-normal); font-size: 16px; outline: none;">
                 </form>
             </div>
         </div>
@@ -391,6 +397,10 @@
                     <div class="input-group">
                         <label>Display Name</label>
                         <input type="text" id="set-name">
+                    </div>
+                    <div class="input-group">
+                        <label>Custom Status</label>
+                        <input type="text" id="set-custom-status" placeholder="Playing a game..." maxlength="100">
                     </div>
                     <div class="input-group">
                         <label>Theme</label>
@@ -580,6 +590,7 @@
 
         document.getElementById('open-settings').addEventListener('click', () => {
             document.getElementById('set-name').value = currentUserData.displayName || '';
+            document.getElementById('set-custom-status').value = currentUserData.customStatus || '';
             document.getElementById('set-theme').value = currentUserData.theme || 'Default Dark';
             tempAvatar = currentUserData.photoURL || '';
             tempBanner = currentUserData.bannerURL || '';
@@ -598,6 +609,7 @@
         document.getElementById('save-settings').addEventListener('click', async () => {
             const newData = {
                 displayName: document.getElementById('set-name').value,
+                customStatus: document.getElementById('set-custom-status').value,
                 photoURL: tempAvatar,
                 bannerURL: tempBanner,
                 theme: document.getElementById('set-theme').value
@@ -870,7 +882,7 @@
                         </div>
                         <div style="display: flex; flex-direction: column;">
                             <span style="font-weight: bold; font-size: 16px;">${user.displayName}</span>
-                            <span style="font-size: 12px; color: var(--text-muted);">${user.status === 'online' ? 'Online' : 'Offline'}</span>
+                            <span style="font-size: 12px; color: var(--text-muted);">${user.customStatus ? user.customStatus : (user.status === 'online' ? 'Online' : 'Offline')}</span>
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px;">
@@ -1042,7 +1054,10 @@
                         <img src="${u.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png'}">
                         <div class="status-dot ${u.status === 'online' ? 'online' : ''}"></div>
                     </div>
-                    <span class="discover-name">${u.displayName}</span>
+                    <div style="display: flex; flex-direction: column; overflow: hidden;">
+                        <span class="discover-name">${u.displayName}</span>
+                        ${u.customStatus ? `<span style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${u.customStatus}</span>` : ''}
+                    </div>
                 `;
                 applyUserStyle(div.querySelector('.discover-name'), u);
                 div.onclick = () => openProfile(u.uid);
@@ -1181,9 +1196,20 @@
             const q = query(collection(db, `chats/${chatId}/messages`), orderBy('createdAt', 'asc'));
             unsubMessages = onSnapshot(q, (snap) => {
                 cachedMessages = [];
-                snap.forEach(d => cachedMessages.push(d.data()));
+                snap.forEach(d => cachedMessages.push({ id: d.id, ...d.data() }));
                 renderMessagesCache();
             });
+        }
+
+        function parseMarkdown(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') // sanitize
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // bold
+                .replace(/\*(.*?)\*/g, '<em>$1</em>') // italic
+                .replace(/__(.*?)__/g, '<u>$1</u>') // underline
+                .replace(/~~(.*?)~~/g, '<del>$1</del>') // strikethrough
+                .replace(/`(.*?)`/g, '<code style="background: var(--bg-secondary); padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>'); // inline code
         }
 
         function renderMessagesCache() {
@@ -1201,6 +1227,16 @@
                     undeliveredHtml = `<span style="color: var(--danger); font-size: 10px; margin-left: 10px;">(Undelivered - Request Pending)</span>`;
                 }
 
+                let deleteBtnHtml = '';
+                if (msg.senderId === auth.currentUser.uid && msg.id) {
+                    deleteBtnHtml = `<span class="delete-msg-btn" data-id="${msg.id}" style="cursor: pointer; font-size: 12px; margin-left: 10px; opacity: 0.5; color: var(--danger);" title="Delete Message">🗑️</span>`;
+                }
+
+                let imageHtml = '';
+                if (msg.imageUrl) {
+                    imageHtml = `<div style="margin-top: 8px;"><img src="${msg.imageUrl}" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="window.open(this.src)"></div>`;
+                }
+
                 div.innerHTML = `
                     <div class="msg-avatar" onclick="document.dispatchEvent(new CustomEvent('openProfile', {detail: '${msg.senderId}'}))">
                         <img src="${user.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png'}">
@@ -1210,11 +1246,27 @@
                             <span class="msg-author" onclick="document.dispatchEvent(new CustomEvent('openProfile', {detail: '${msg.senderId}'}))">${user.displayName}</span>
                             <span class="msg-time">${time}</span>
                             ${undeliveredHtml}
+                            ${deleteBtnHtml}
                         </div>
-                        <div class="msg-text">${msg.text}</div>
+                        <div class="msg-text">${parseMarkdown(msg.text)}</div>
+                        ${imageHtml}
                     </div>
                 `;
                 applyUserStyle(div.querySelector('.msg-author'), user);
+                
+                const delBtn = div.querySelector('.delete-msg-btn');
+                if (delBtn) {
+                    delBtn.onclick = async () => {
+                        if(confirm('Delete this message?')) {
+                            try {
+                                await deleteDoc(doc(db, `chats/${currentChatId}/messages`, msg.id));
+                            } catch (e) {
+                                console.error("Error deleting message:", e);
+                            }
+                        }
+                    };
+                }
+
                 container.appendChild(div);
             });
             container.scrollTop = container.scrollHeight;
@@ -1223,18 +1275,73 @@
         // Custom event listener to open profile from inside rendered HTML
         document.addEventListener('openProfile', (e) => openProfile(e.detail));
 
+        let pendingAttachment = null;
+
+        document.getElementById('attachment-btn').addEventListener('click', () => {
+            document.getElementById('attachment-input').click();
+        });
+
+        document.getElementById('attachment-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File too large. Max 5MB.');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height) {
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    } else {
+                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    pendingAttachment = canvas.toDataURL('image/jpeg', 0.8);
+                    document.getElementById('attachment-preview').src = pendingAttachment;
+                    document.getElementById('attachment-preview-container').classList.remove('hidden');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        });
+
+        document.getElementById('remove-attachment-btn').addEventListener('click', () => {
+            pendingAttachment = null;
+            document.getElementById('attachment-preview-container').classList.add('hidden');
+        });
+
         document.getElementById('message-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('message-input');
             const text = input.value.trim();
-            if(!text || !currentChatId || input.disabled) return;
-            input.value = '';
+            if((!text && !pendingAttachment) || !currentChatId || input.disabled) return;
             
-            await addDoc(collection(db, `chats/${currentChatId}/messages`), {
-                text: text,
+            input.value = '';
+            const msgData = {
+                text: text || " ",
                 senderId: auth.currentUser.uid,
                 createdAt: serverTimestamp()
-            });
+            };
+            
+            if (pendingAttachment) {
+                msgData.imageUrl = pendingAttachment;
+            }
+
+            // Clear attachment UI immediately
+            pendingAttachment = null;
+            document.getElementById('attachment-preview-container').classList.add('hidden');
+            
+            await addDoc(collection(db, `chats/${currentChatId}/messages`), msgData);
             if(currentChatId !== 'GLOBAL_MAIN_SERVER') {
                 await updateDoc(doc(db, 'chats', currentChatId), { updatedAt: serverTimestamp() });
             }
