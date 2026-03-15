@@ -120,6 +120,23 @@
 
         .hidden { display: none !important; }
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 20px; }
+        .server-card { background: var(--bg-secondary); border-radius: 12px; overflow: hidden; transition: transform 0.2s; cursor: pointer; display: flex; flex-direction: column; }
+        .server-card:hover { transform: translateY(-5px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        .server-card-banner { height: 120px; background-size: cover; background-position: center; background-color: var(--bg-tertiary); }
+        .server-card-icon { width: 64px; height: 64px; border-radius: 16px; margin: -32px 0 0 20px; border: 4px solid var(--bg-secondary); background: var(--bg-tertiary); object-fit: cover; z-index: 1; position: relative; }
+        .server-card-info { padding: 15px 20px; flex: 1; display: flex; flex-direction: column; }
+        .server-card-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; color: var(--text-normal); }
+        .server-card-desc { font-size: 14px; color: var(--text-muted); margin-bottom: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1; }
+        .server-card-stats { display: flex; gap: 15px; font-size: 12px; color: var(--text-muted); margin-bottom: 15px; }
+        .stat-item { display: flex; align-items: center; gap: 5px; }
+        .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .stat-dot.online { background: var(--success); }
+        .stat-dot.offline { background: var(--text-muted); }
+        .join-btn { width: 100%; padding: 10px; border-radius: 8px; background: var(--success); color: white; border: none; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .join-btn:hover { filter: brightness(1.1); }
+        .join-btn.joined { background: var(--bg-tertiary); color: var(--text-normal); cursor: default; }
+        .join-btn.joined:hover { filter: none; }
     </style>
     <style id="theme-style"></style>
     <script>
@@ -274,13 +291,19 @@
             <div class="server-icon active" title="Direct Messages" id="home-btn">
                 <svg width="28" height="20" viewBox="0 0 28 20" fill="white"><path d="M23.0212 1.67671C21.3107 0.879656 19.5079 0.318797 17.6584 0C17.4062 0.461742 17.1749 0.934541 16.9708 1.4184C15.003 1.12145 12.9974 1.12145 11.0283 1.4184C10.819 0.934541 10.589 0.461742 10.3368 0C8.48074 0.318797 6.68442 0.879656 4.97391 1.67671C1.56727 6.77853 0.649666 11.7538 1.11108 16.652C3.10102 18.1418 5.3262 19.2743 7.69177 20C8.22338 19.2743 8.69519 18.4993 9.09812 17.691C8.32996 17.3997 7.58522 17.0424 6.87684 16.6135C7.06531 16.4762 7.24726 16.3387 7.42403 16.1847C11.5911 18.1749 16.408 18.1749 20.5763 16.1847C20.7531 16.3332 20.9351 16.4762 21.1171 16.6135C20.41 17.0369 19.6639 17.3997 18.897 17.691C19.3052 18.4993 19.7718 19.2689 20.3086 20C22.6688 19.2743 24.894 18.1418 26.884 16.652C27.43 10.9731 25.9665 6.04728 23.0212 1.67671ZM9.68041 13.6383C8.39754 13.6383 7.34085 12.4453 7.34085 10.994C7.34085 9.54272 8.37155 8.34973 9.68041 8.34973C10.9893 8.34973 12.0363 9.54272 12.0103 10.994C12.0103 12.4453 10.9893 13.6383 9.68041 13.6383ZM18.3161 13.6383C17.0332 13.6383 15.9765 12.4453 15.9765 10.994C15.9765 9.54272 17.0072 8.34973 18.3161 8.34973C19.625 8.34973 20.6719 9.54272 20.646 10.994C20.646 12.4453 19.625 13.6383 18.3161 13.6383Z"/></svg>
             </div>
-            <div class="server-icon" id="main-server-btn" title="Main Server" style="background: var(--blurple);">🌍</div>
+            <div class="server-icon" id="discover-btn" title="Discover Servers" style="background: var(--success); color: white;">🧭</div>
+            <div style="width: 32px; height: 2px; background: var(--bg-secondary); margin: 8px 0; border-radius: 1px;"></div>
+            <div id="joined-servers-list" style="display: flex; flex-direction: column; gap: 8px; width: 100%; align-items: center;"></div>
+            <div class="server-icon" id="create-server-btn" title="Create Server" style="color: var(--success); background: rgba(35, 165, 89, 0.1);">+</div>
         </div>
 
         <!-- Channels / DMs Sidebar -->
         <div class="sidebar">
-            <div class="sidebar-header flex-between">
-                <input type="text" placeholder="Find or start a conversation" style="width: 100%; background: var(--bg-tertiary); border: none; padding: 6px; border-radius: 4px; color: white; font-size: 12px; outline: none;">
+            <div class="sidebar-header flex-between" id="server-header" style="position: relative; padding: 0; min-height: 48px; background-size: cover; background-position: center;">
+                <div style="position: absolute; bottom: 0; left: 0; right: 0; top: 0; background: linear-gradient(transparent, rgba(0,0,0,0.6)); display: flex; align-items: flex-end; justify-content: space-between; padding: 12px 16px;">
+                    <h3 id="server-name-display" style="color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.8); margin: 0; font-size: 16px;">Direct Messages</h3>
+                    <button id="server-settings-btn" class="hidden" style="background:none;border:none;color:white;cursor:pointer;font-size:16px;text-shadow: 0 1px 3px rgba(0,0,0,0.8);">⚙️</button>
+                </div>
             </div>
             <div class="channel-list" style="padding: 10px 8px 0 8px;">
                 <div class="channel active" id="friends-tab-btn">
@@ -334,6 +357,17 @@
                     <input type="file" id="attachment-input" accept="image/*" style="display: none;">
                     <input type="text" id="message-input" placeholder="Message..." disabled autocomplete="off" style="flex: 1; background: transparent; border: none; color: var(--text-normal); font-size: 16px; outline: none;">
                 </form>
+            </div>
+        </div>
+
+        <!-- Discover Area -->
+        <div id="discover-area" class="main-content hidden" style="flex: 1; background: var(--bg-primary); overflow-y: auto;">
+            <div style="padding: 40px; border-bottom: 1px solid var(--bg-secondary); background: linear-gradient(to right, var(--bg-tertiary), var(--bg-primary));">
+                <h1 style="font-size: 36px; font-weight: 900; margin-bottom: 10px; color: white;">Discover Servers</h1>
+                <p style="color: var(--text-muted); font-size: 16px;">Find communities, make friends, and chat about your favorite topics.</p>
+            </div>
+            <div class="discover-grid" id="discover-grid">
+                <!-- Server cards load here -->
             </div>
         </div>
 
@@ -437,6 +471,48 @@
     <input type="file" id="file-input" accept="image/png, image/jpeg, image/webp" style="display: none;">
 
     <!-- Firebase & Logic -->
+    <!-- Create Server Modal -->
+    <div id="create-server-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <span>Create a Server</span>
+                <span class="close-btn" id="close-create-server">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">Give your new server a personality with a name and an icon. You can always change it later.</p>
+                <form id="create-server-form">
+                    <div class="input-group">
+                        <label>Server Name</label>
+                        <input type="text" id="new-server-name" required maxlength="50" placeholder="My Awesome Server">
+                    </div>
+                    <div class="input-group">
+                        <label>Description</label>
+                        <textarea id="new-server-desc" rows="3" maxlength="200" placeholder="What is this server about?" style="background: var(--bg-tertiary); border: none; padding: 10px; border-radius: 4px; color: var(--text-normal); width: 100%; resize: none;"></textarea>
+                    </div>
+                    <div class="settings-grid" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="input-group">
+                            <label>Icon (Optional)</label>
+                            <div class="profile-avatar clickable-img" style="width: 64px; height: 64px; border-radius: 16px; margin: 0;" onclick="document.getElementById('new-server-icon').click()">
+                                <img src="" id="new-server-icon-preview" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" style="border-radius: 16px;">
+                                <span class="img-hint" style="font-size: 10px;">UPLOAD</span>
+                            </div>
+                            <input type="file" id="new-server-icon" accept="image/*" style="display: none;">
+                        </div>
+                        <div class="input-group">
+                            <label>Banner (Optional)</label>
+                            <div class="profile-banner clickable-img" style="height: 64px; margin: 0;" onclick="document.getElementById('new-server-banner').click()">
+                                <img src="" id="new-server-banner-preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: none;">
+                                <span class="img-hint" style="font-size: 10px;">UPLOAD</span>
+                            </div>
+                            <input type="file" id="new-server-banner" accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn" style="width: 100%; margin-top: 20px; background: var(--success);">Create Server</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
@@ -464,7 +540,11 @@
         let usersCache = {};
         let unsubMessages = null;
         let unsubChats = null;
-        let isMainServerView = false;
+        let currentView = 'dms'; // 'dms', 'discover', 'server'
+        let currentServerId = null;
+        let currentServerData = null;
+        let unsubServerChannels = null;
+        let unsubJoinedServers = null;
         let viewingProfileUid = null;
 
         function applyUserStyle(element, user) {
@@ -500,12 +580,15 @@
                 await initUser(user);
                 await setPresence('online');
                 loadDMs();
+                loadJoinedServers();
                 listenToAllUsers();
             } else {
                 document.getElementById('auth-screen').style.display = 'flex';
                 document.getElementById('app-screen').style.display = 'none';
                 if(unsubChats) unsubChats();
                 if(unsubMessages) unsubMessages();
+                if(unsubJoinedServers) unsubJoinedServers();
+                if(unsubServerChannels) unsubServerChannels();
             }
         });
 
@@ -798,51 +881,106 @@
         document.getElementById('friends-tab-btn').addEventListener('click', showFriendsView);
 
         document.getElementById('home-btn').addEventListener('click', () => {
-            isMainServerView = false;
+            currentView = 'dms';
+            currentServerId = null;
             document.getElementById('create-group-btn').style.display = 'block';
             document.getElementById('members-sidebar').style.display = 'none';
             document.querySelectorAll('.server-icon').forEach(el => el.classList.remove('active'));
             document.getElementById('home-btn').classList.add('active');
             
-            // Show friends tab and direct messages header
-            document.getElementById('friends-tab-btn').parentElement.style.display = 'block';
-            document.getElementById('friends-tab-btn').parentElement.nextElementSibling.style.display = 'flex';
+            document.getElementById('server-header').style.backgroundImage = 'none';
+            document.getElementById('server-name-display').textContent = 'Direct Messages';
+            document.getElementById('server-settings-btn').classList.add('hidden');
+            
+            document.getElementById('discover-area').classList.add('hidden');
+            document.getElementById('chat-area').classList.add('hidden');
+            document.getElementById('friends-area').classList.remove('hidden');
+            
+            document.getElementById('friends-tab-btn').style.display = 'flex';
             
             loadDMs();
             showFriendsView();
         });
 
-        document.getElementById('main-server-btn').addEventListener('click', async () => {
-            isMainServerView = true;
-            document.getElementById('create-group-btn').style.display = 'none';
-            document.getElementById('members-sidebar').style.display = 'flex';
+        document.getElementById('discover-btn').addEventListener('click', () => {
+            currentView = 'discover';
+            currentServerId = null;
             document.querySelectorAll('.server-icon').forEach(el => el.classList.remove('active'));
-            document.getElementById('main-server-btn').classList.add('active');
+            document.getElementById('discover-btn').classList.add('active');
             
-            // Hide friends tab and direct messages header
-            document.getElementById('friends-tab-btn').parentElement.style.display = 'none';
-            document.getElementById('friends-tab-btn').parentElement.nextElementSibling.style.display = 'none';
-            
-            document.getElementById('chat-area').classList.remove('hidden');
             document.getElementById('friends-area').classList.add('hidden');
+            document.getElementById('chat-area').classList.add('hidden');
+            document.getElementById('discover-area').classList.remove('hidden');
+            document.getElementById('members-sidebar').style.display = 'none';
             
-            // Setup Main Server Channels
-            const list = document.getElementById('chat-list');
-            list.innerHTML = `
-                <div class="channel active" id="ms-general">
-                    <span style="font-size: 20px; color: var(--text-muted);">#</span> general
-                </div>
-            `;
-            
-            // Ensure main server doc exists
-            const msRef = doc(db, 'chats', 'GLOBAL_MAIN_SERVER');
-            const msSnap = await getDoc(msRef);
-            if(!msSnap.exists()) {
-                await setDoc(msRef, { name: 'Main Server', isGroup: true, members: [] });
+            loadDiscoverServers();
+        });
+
+        document.getElementById('create-server-btn').addEventListener('click', () => {
+            document.getElementById('create-server-modal').classList.remove('hidden');
+        });
+
+        document.getElementById('close-create-server').addEventListener('click', () => {
+            document.getElementById('create-server-modal').classList.add('hidden');
+        });
+
+        let newServerIconBase64 = null;
+        let newServerBannerBase64 = null;
+
+        document.getElementById('new-server-icon').addEventListener('change', (e) => {
+            processImageFile(e.target.files[0], 800, 800, (base64) => {
+                newServerIconBase64 = base64;
+                document.getElementById('new-server-icon-preview').src = base64;
+            });
+        });
+
+        document.getElementById('new-server-banner').addEventListener('change', (e) => {
+            processImageFile(e.target.files[0], 1200, 400, (base64) => {
+                newServerBannerBase64 = base64;
+                document.getElementById('new-server-banner-preview').src = base64;
+                document.getElementById('new-server-banner-preview').style.display = 'block';
+            });
+        });
+
+        document.getElementById('create-server-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('new-server-name').value.trim();
+            const desc = document.getElementById('new-server-desc').value.trim();
+            if(!name) return;
+
+            const serverData = {
+                name,
+                description: desc,
+                ownerId: auth.currentUser.uid,
+                createdAt: serverTimestamp(),
+                members: [auth.currentUser.uid]
+            };
+            if(newServerIconBase64) serverData.iconUrl = newServerIconBase64;
+            if(newServerBannerBase64) serverData.bannerUrl = newServerBannerBase64;
+
+            try {
+                const serverRef = await addDoc(collection(db, 'servers'), serverData);
+
+                // Create default general channel
+                await addDoc(collection(db, 'chats'), {
+                    name: 'general',
+                    isGroup: true,
+                    serverId: serverRef.id,
+                    updatedAt: serverTimestamp()
+                });
+
+                document.getElementById('create-server-modal').classList.add('hidden');
+                document.getElementById('create-server-form').reset();
+                newServerIconBase64 = null;
+                newServerBannerBase64 = null;
+                document.getElementById('new-server-icon-preview').src = '';
+                document.getElementById('new-server-banner-preview').style.display = 'none';
+                
+                openServer(serverRef.id);
+            } catch (err) {
+                console.error("Error creating server:", err);
+                alert("Failed to create server.");
             }
-            
-            openChat('GLOBAL_MAIN_SERVER', '# general', true, true);
-            renderServerMembers();
         });
 
         document.getElementById('add-friend-header-btn').addEventListener('click', async () => {
@@ -1074,12 +1212,14 @@
             if(unsubChats) unsubChats();
             const q = query(collection(db, 'chats'), where('members', 'array-contains', auth.currentUser.uid));
             unsubChats = onSnapshot(q, (snap) => {
-                if(isMainServerView) return; // Don't render DMs if in main server
+                if(currentView !== 'dms') return;
                 const list = document.getElementById('chat-list');
                 list.innerHTML = '';
                 snap.forEach(docSnap => {
-                    if(docSnap.id === 'GLOBAL_MAIN_SERVER') return; // Hide main server from DMs
+                    if(docSnap.id === 'GLOBAL_MAIN_SERVER') return;
                     const chat = docSnap.data();
+                    if(chat.serverId) return; // Hide server channels from DMs list
+                    
                     const div = document.createElement('div');
                     div.className = `channel ${currentChatId === docSnap.id ? 'active' : ''}`;
                     
@@ -1099,13 +1239,248 @@
                             <img src="${chatIcon}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
                             ${!chat.isGroup && usersCache[otherUid] ? `<div class="status-dot ${usersCache[otherUid].status === 'online' ? 'online' : ''}"></div>` : ''}
                         </div>
-                        <span>${chatName}</span>
+                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${chatName}</span>
                     `;
                     div.onclick = () => openChat(docSnap.id, chatName, chat.isGroup, false, otherUid, chat.isRequest, chat.requesterId);
                     list.appendChild(div);
                 });
             });
         }
+
+        // --- Server Logic ---
+        
+        function loadJoinedServers() {
+            if(unsubJoinedServers) unsubJoinedServers();
+            const q = query(collection(db, 'servers'), where('members', 'array-contains', auth.currentUser.uid));
+            unsubJoinedServers = onSnapshot(q, (snap) => {
+                const list = document.getElementById('joined-servers-list');
+                list.innerHTML = '';
+                snap.forEach(docSnap => {
+                    const server = docSnap.data();
+                    const div = document.createElement('div');
+                    div.className = `server-icon ${currentServerId === docSnap.id ? 'active' : ''}`;
+                    div.title = server.name;
+                    if(server.iconUrl) {
+                        div.innerHTML = `<img src="${server.iconUrl}" style="width: 100%; height: 100%; border-radius: inherit; object-fit: cover;">`;
+                    } else {
+                        div.textContent = server.name.charAt(0).toUpperCase();
+                    }
+                    div.onclick = () => {
+                        document.querySelectorAll('.server-icon').forEach(el => el.classList.remove('active'));
+                        div.classList.add('active');
+                        openServer(docSnap.id);
+                    };
+                    list.appendChild(div);
+                });
+            });
+        }
+
+        async function loadDiscoverServers() {
+            const list = document.getElementById('discover-grid');
+            list.innerHTML = '<div style="color: var(--text-muted); padding: 20px;">Loading servers...</div>';
+            try {
+                const q = query(collection(db, 'servers'), orderBy('createdAt', 'desc'));
+                const snap = await getDocs(q);
+                list.innerHTML = '';
+                if(snap.empty) {
+                    list.innerHTML = '<div style="color: var(--text-muted); padding: 20px;">No servers found. Be the first to create one!</div>';
+                    return;
+                }
+                snap.forEach(docSnap => {
+                    const server = docSnap.data();
+                    const isJoined = server.members.includes(auth.currentUser.uid);
+                    let onlineCount = 0;
+                    server.members.forEach(uid => {
+                        if(usersCache[uid] && usersCache[uid].status === 'online') onlineCount++;
+                    });
+
+                    const card = document.createElement('div');
+                    card.className = 'server-card';
+                    card.onclick = () => isJoined ? openServer(docSnap.id) : joinServer(docSnap.id);
+                    
+                    const createdDate = server.createdAt ? new Date(server.createdAt.toMillis()).toLocaleDateString() : 'Unknown';
+
+                    card.innerHTML = `
+                        <div class="server-card-banner" style="background-image: url('${server.bannerUrl || 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=800&q=80'}')"></div>
+                        <img class="server-card-icon" src="${server.iconUrl || 'https://cdn.discordapp.com/embed/avatars/0.png'}">
+                        <div class="server-card-info">
+                            <div class="server-card-title">${server.name}</div>
+                            <div class="server-card-desc">${server.description || 'No description provided.'}</div>
+                            <div class="server-card-stats">
+                                <div class="stat-item"><div class="stat-dot online"></div> ${onlineCount} Online</div>
+                                <div class="stat-item"><div class="stat-dot offline"></div> ${server.members.length} Members</div>
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Created: ${createdDate}</div>
+                            <button class="join-btn ${isJoined ? 'joined' : ''}" onclick="event.stopPropagation(); ${isJoined ? `openServer('${docSnap.id}')` : `joinServer('${docSnap.id}')`}">${isJoined ? 'Already Joined' : 'Join Server'}</button>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+            } catch (e) {
+                console.error("Error loading discover:", e);
+                list.innerHTML = '<div style="color: var(--danger); padding: 20px;">Failed to load servers.</div>';
+            }
+        }
+
+        async function joinServer(serverId) {
+            try {
+                await updateDoc(doc(db, 'servers', serverId), {
+                    members: arrayUnion(auth.currentUser.uid)
+                });
+                openServer(serverId);
+            } catch (e) {
+                console.error("Error joining server:", e);
+                alert("Failed to join server.");
+            }
+        }
+
+        async function openServer(serverId) {
+            currentView = 'server';
+            currentServerId = serverId;
+            document.getElementById('friends-area').classList.add('hidden');
+            document.getElementById('discover-area').classList.add('hidden');
+            document.getElementById('chat-area').classList.remove('hidden');
+            document.getElementById('members-sidebar').style.display = 'flex';
+            document.getElementById('create-group-btn').style.display = 'none';
+            document.getElementById('friends-tab-btn').style.display = 'none';
+            document.getElementById('server-settings-btn').classList.remove('hidden');
+            
+            document.querySelectorAll('.server-icon').forEach(el => el.classList.remove('active'));
+            // Try to find the icon in the list to make it active
+            const icon = Array.from(document.getElementById('joined-servers-list').children).find(el => el.onclick.toString().includes(serverId));
+            if(icon) icon.classList.add('active');
+
+            try {
+                const serverDoc = await getDoc(doc(db, 'servers', serverId));
+                if(!serverDoc.exists()) return;
+                currentServerData = serverDoc.data();
+
+                document.getElementById('server-name-display').textContent = currentServerData.name;
+                if(currentServerData.bannerUrl) {
+                    document.getElementById('server-header').style.backgroundImage = `url('${currentServerData.bannerUrl}')`;
+                } else {
+                    document.getElementById('server-header').style.backgroundImage = 'none';
+                }
+
+                loadServerChannels(serverId);
+                renderServerMembersList(currentServerData.members);
+            } catch (e) {
+                console.error("Error opening server:", e);
+            }
+        }
+
+        function loadServerChannels(serverId) {
+            if(unsubChats) unsubChats(); // Stop DM listener
+            if(unsubServerChannels) unsubServerChannels();
+            const q = query(collection(db, 'chats'), where('serverId', '==', serverId));
+            unsubServerChannels = onSnapshot(q, (snap) => {
+                if(currentView !== 'server' || currentServerId !== serverId) return;
+                const list = document.getElementById('chat-list');
+                list.innerHTML = '';
+                let firstChannelId = null;
+                let firstChannelName = null;
+                snap.forEach(docSnap => {
+                    const chat = docSnap.data();
+                    if(!firstChannelId) { firstChannelId = docSnap.id; firstChannelName = chat.name; }
+                    const div = document.createElement('div');
+                    div.className = `channel ${currentChatId === docSnap.id ? 'active' : ''}`;
+                    div.innerHTML = `<span style="font-size: 20px; color: var(--text-muted); margin-right: 8px;">#</span> <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${chat.name}</span>`;
+                    div.onclick = () => openChat(docSnap.id, `# ${chat.name}`, true, false, null, false, null);
+                    list.appendChild(div);
+                });
+                
+                if(currentServerData && currentServerData.ownerId === auth.currentUser.uid) {
+                    const addBtn = document.createElement('div');
+                    addBtn.className = 'channel';
+                    addBtn.style.color = 'var(--success)';
+                    addBtn.innerHTML = `+ Create Channel`;
+                    addBtn.onclick = async () => {
+                        const name = prompt('Channel Name:');
+                        if(name) {
+                            await addDoc(collection(db, 'chats'), {
+                                name: name.toLowerCase().replace(/\\s+/g, '-'),
+                                isGroup: true,
+                                serverId: serverId,
+                                updatedAt: serverTimestamp()
+                            });
+                        }
+                    };
+                    list.appendChild(addBtn);
+                }
+
+                if(firstChannelId && (!currentChatId || currentView === 'server')) {
+                    openChat(firstChannelId, `# ${firstChannelName}`, true, false, null, false, null);
+                } else if (!firstChannelId) {
+                    document.getElementById('messages-container').innerHTML = '<div style="padding: 20px; color: var(--text-muted); text-align: center;">No channels in this server yet.</div>';
+                    document.getElementById('current-chat-name').textContent = 'No Channels';
+                    currentChatId = null;
+                }
+            });
+        }
+
+        function renderServerMembersList(memberIds) {
+            const onlineList = document.getElementById('online-list');
+            const offlineList = document.getElementById('offline-list');
+            onlineList.innerHTML = ''; offlineList.innerHTML = '';
+            let onCount = 0, offCount = 0;
+
+            memberIds.forEach(uid => {
+                const u = usersCache[uid];
+                if(!u) return;
+                const isOwner = currentServerData && currentServerData.ownerId === uid;
+                const div = document.createElement('div');
+                div.className = 'channel';
+                div.innerHTML = `
+                    <div class="channel-avatar">
+                        <img src="${u.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png'}">
+                        <div class="status-dot ${u.status === 'online' ? 'online' : ''}"></div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; overflow: hidden;">
+                        <span class="discover-name" style="${isOwner ? 'color: #faa61a;' : ''}">${u.displayName} ${isOwner ? '👑' : ''}</span>
+                        ${u.customStatus ? `<span style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${u.customStatus}</span>` : ''}
+                    </div>
+                `;
+                if(!isOwner) applyUserStyle(div.querySelector('.discover-name'), u);
+                div.onclick = () => openProfile(u.uid);
+
+                if(u.status === 'online') { onlineList.appendChild(div); onCount++; }
+                else { offlineList.appendChild(div); offCount++; }
+            });
+            document.getElementById('online-count').textContent = onCount;
+            document.getElementById('offline-count').textContent = offCount;
+        }
+
+        // --- End Server Logic ---
+
+        document.getElementById('server-settings-btn').addEventListener('click', async () => {
+            if(!currentServerData || !currentServerId) return;
+            const isOwner = currentServerData.ownerId === auth.currentUser.uid;
+            
+            if(isOwner) {
+                if(confirm(`Are you sure you want to delete the server "${currentServerData.name}"? This action cannot be undone.`)) {
+                    try {
+                        await deleteDoc(doc(db, 'servers', currentServerId));
+                        // Note: In a real app, you'd also delete all channels and messages associated with the server.
+                        document.getElementById('home-btn').click();
+                    } catch (e) {
+                        console.error("Error deleting server:", e);
+                        alert("Failed to delete server.");
+                    }
+                }
+            } else {
+                if(confirm(`Are you sure you want to leave the server "${currentServerData.name}"?`)) {
+                    try {
+                        await updateDoc(doc(db, 'servers', currentServerId), {
+                            members: arrayRemove(auth.currentUser.uid)
+                        });
+                        document.getElementById('home-btn').click();
+                    } catch (e) {
+                        console.error("Error leaving server:", e);
+                        alert("Failed to leave server.");
+                    }
+                }
+            }
+        });
 
         document.getElementById('create-group-btn').addEventListener('click', async () => {
             const name = prompt("Enter Group Name:");
@@ -1126,6 +1501,7 @@
         function openChat(chatId, chatName, isGroup, isMainServer = false, otherUid = null, isRequest = false, requesterId = null) {
             document.getElementById('chat-area').classList.remove('hidden');
             document.getElementById('friends-area').classList.add('hidden');
+            document.getElementById('discover-area').classList.add('hidden');
             
             currentChatId = chatId;
             currentChatIsRequest = isRequest;
@@ -1175,7 +1551,7 @@
             }
             
             const addUserBtn = document.getElementById('add-user-to-group');
-            if(isGroup && !isMainServer) {
+            if(isGroup && !isMainServer && currentView !== 'server') {
                 addUserBtn.classList.remove('hidden');
                 addUserBtn.onclick = async () => {
                     const uid = prompt("Enter User ID to add to group:\n(You can find UIDs in user profiles)");
@@ -1188,9 +1564,12 @@
                 addUserBtn.classList.add('hidden');
             }
 
-            if(!isMainServer) {
-                document.querySelectorAll('.channel').forEach(el => el.classList.remove('active'));
-            }
+            document.querySelectorAll('.channel').forEach(el => {
+                el.classList.remove('active');
+                if(el.onclick && el.onclick.toString().includes(chatId)) {
+                    el.classList.add('active');
+                }
+            });
             
             if(unsubMessages) unsubMessages();
             const q = query(collection(db, `chats/${chatId}/messages`), orderBy('createdAt', 'asc'));
