@@ -1298,6 +1298,37 @@
             color: #949ba4;
         }
 
+        .message-delete-btn {
+            background: transparent;
+            border: none;
+            color: #f23f43;
+            cursor: pointer;
+            font-size: 12px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+            margin-left: 8px;
+        }
+        .message-delete-btn:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+        .message-rank {
+            font-size: 10px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            margin-left: 6px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+        .message-rank.developer {
+            background-color: #5865f2;
+            color: white;
+        }
+        .message-rank.test {
+            background-color: #4e5058;
+            color: #dbdee1;
+        }
+
         .message-text {
             color: #dbdee1;
             line-height: 1.375;
@@ -1965,6 +1996,26 @@
     </div>
 
     <!-- Profile Modal -->
+    <div id="discover-servers-modal" class="profile-modal">
+        <div class="profile-modal-content" style="padding: 24px; width: 800px; height: 600px; overflow-y: auto;">
+            <h2 style="color: white; margin-bottom: 16px;">Discover Servers</h2>
+            <div id="discover-servers-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;"></div>
+            <button onclick="document.getElementById('discover-servers-modal').classList.remove('active')" style="margin-top: 16px; padding: 8px 16px; background: transparent; border: none; color: #dbdee1; cursor: pointer;">Close</button>
+        </div>
+    </div>
+
+    <div id="create-server-modal" class="profile-modal">
+        <div class="profile-modal-content" style="padding: 24px;">
+            <h2 style="color: white; margin-bottom: 16px;">Create a Server</h2>
+            <input type="text" id="server-name-input" placeholder="Server Name" style="width: 100%; padding: 8px; margin-bottom: 16px; background: var(--theme-surface); border: none; color: white; border-radius: 4px;">
+            <input type="text" id="server-desc-input" placeholder="Description" style="width: 100%; padding: 8px; margin-bottom: 16px; background: var(--theme-surface); border: none; color: white; border-radius: 4px;">
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button onclick="document.getElementById('create-server-modal').classList.remove('active')" style="padding: 8px 16px; background: transparent; border: none; color: #dbdee1; cursor: pointer;">Cancel</button>
+                <button onclick="createServer()" style="padding: 8px 16px; background: var(--primary); border: none; color: white; border-radius: 4px; cursor: pointer;">Create</button>
+            </div>
+        </div>
+    </div>
+
     <div class="profile-modal" id="profile-modal">
         <div class="profile-modal-content">
             <div class="close-modal" id="close-modal">
@@ -2378,7 +2429,8 @@
                     bannerURL: bannerURL,
                     bio: bio,
                     status: 'online',
-                    createdAt: serverTimestamp()
+                    createdAt: serverTimestamp(),
+                    rank: user.email === 'dev@gmail.com' ? 'developer' : 'test'
                 });
                 
                 // Also ensure a main server exists
@@ -2695,6 +2747,16 @@
                 loadDMChannels();
                 showFriendsView();
             };
+
+            const discoverIcon = document.createElement('div');
+            discoverIcon.className = 'server-icon';
+            discoverIcon.title = 'Discover Servers';
+            discoverIcon.textContent = '🔍';
+            discoverIcon.onclick = () => {
+                document.getElementById('discover-servers-modal').classList.add('active');
+                loadDiscoverServers();
+            };
+            serverList.insertBefore(discoverIcon, document.getElementById('add-server'));
 
             const q = query(collection(db, 'servers'), limit(20));
             const querySnapshot = await getDocs(q);
@@ -3076,7 +3138,9 @@
                     <div class="message-content-wrapper">
                         <div class="message-header">
                             <span class="message-author" onclick="showProfile('${msg.authorId}')">${msg.authorName}</span>
+                            <span class="message-rank ${msg.authorRank || 'test'}">${msg.authorRank || 'test'}</span>
                             <span class="message-timestamp">${time}</span>
+                            ${msg.authorId === currentUserData.uid ? `<button class="message-delete-btn" onclick="deleteMessage('${msg.id}')">Delete</button>` : ''}
                         </div>
                         <div class="message-text">${msg.content}</div>
                     </div>
@@ -3162,8 +3226,17 @@
             document.getElementById('profile-modal').classList.remove('active');
         };
 
+        async function deleteMessage(messageId) {
+            try {
+                await deleteDoc(doc(db, 'messages', messageId));
+            } catch (error) {
+                console.error("Error deleting message:", error);
+            }
+        }
+
         document.getElementById('message-form').onsubmit = async (e) => {
             e.preventDefault();
+            e.stopPropagation();
             const input = document.getElementById('message-input');
             const content = input.value.trim();
             if (!content || !currentUserData) return;
@@ -3175,6 +3248,7 @@
                     authorId: currentUserData.uid,
                     authorName: currentUserData.username,
                     authorAvatar: currentUserData.photoURL,
+                    authorRank: currentUserData.rank || 'test',
                     channelId: currentChannelId,
                     timestamp: serverTimestamp()
                 });
@@ -3216,6 +3290,74 @@
         };
 
         document.getElementById('user-settings').onclick = openSettings;
+
+        document.getElementById('add-server').onclick = () => {
+            document.getElementById('create-server-modal').classList.add('active');
+        };
+
+        async function createServer() {
+            const name = document.getElementById('server-name-input').value.trim();
+            const description = document.getElementById('server-desc-input').value.trim();
+            if (!name) return;
+
+            try {
+                const serverRef = await addDoc(collection(db, 'servers'), {
+                    name: name,
+                    description: description,
+                    ownerId: auth.currentUser.uid,
+                    createdAt: serverTimestamp()
+                });
+                
+                // Add creator as member
+                await addDoc(collection(db, 'servers', serverRef.id, 'members'), {
+                    serverId: serverRef.id,
+                    userId: auth.currentUser.uid,
+                    roleIds: []
+                });
+
+                document.getElementById('create-server-modal').classList.remove('active');
+                document.getElementById('server-name-input').value = '';
+                document.getElementById('server-desc-input').value = '';
+                loadServers();
+            } catch (error) {
+                console.error("Error creating server: ", error);
+            }
+        }
+
+        async function loadDiscoverServers() {
+            const list = document.getElementById('discover-servers-list');
+            list.innerHTML = '';
+            const q = query(collection(db, 'servers'), limit(50));
+            const snapshot = await getDocs(q);
+            snapshot.forEach(doc => {
+                const server = doc.data();
+                const item = document.createElement('div');
+                item.style.background = 'var(--theme-surface)';
+                item.style.padding = '16px';
+                item.style.borderRadius = '8px';
+                item.innerHTML = `
+                    <div style="width: 64px; height: 64px; background: ${server.iconURL ? `url(${server.iconURL})` : '#5865F2'}; background-size: cover; border-radius: 50%; margin-bottom: 12px;"></div>
+                    <h3 style="color: white; margin-bottom: 8px;">${server.name}</h3>
+                    <p style="color: #dbdee1; font-size: 14px; margin-bottom: 12px;">${server.description || 'No description'}</p>
+                    <button onclick="joinServer('${doc.id}')" style="width: 100%; padding: 8px; background: var(--primary); border: none; color: white; border-radius: 4px; cursor: pointer;">Join</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        async function joinServer(serverId) {
+            try {
+                await addDoc(collection(db, 'servers', serverId, 'members'), {
+                    serverId: serverId,
+                    userId: auth.currentUser.uid,
+                    roleIds: []
+                });
+                document.getElementById('discover-servers-modal').classList.remove('active');
+                loadServers();
+            } catch (error) {
+                console.error("Error joining server: ", error);
+            }
+        }
 
     </script>
 </body>
