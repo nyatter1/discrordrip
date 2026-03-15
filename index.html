@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiscordRip</title>
+    <style>
+        :root {
+            --bg-tertiary: #202225;
+            --bg-secondary: #2f3136;
+            --bg-primary: #36393f;
+            --bg-floating: #18191c;
+            --text-normal: #dcddde;
+            --text-muted: #72767d;
+            --blurple: #5865F2;
+            --blurple-hover: #4752C4;
+            --danger: #ed4245;
+            --success: #3ba55d;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-primary); color: var(--text-normal); height: 100vh; overflow: hidden; display: flex; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
+
+        /* Auth Screen */
+        #auth-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('https://picsum.photos/1920/1080?blur=5') center/cover; display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .auth-box { background: var(--bg-primary); padding: 32px; border-radius: 8px; width: 480px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); text-align: center; }
+        .auth-box h2 { margin-bottom: 20px; font-size: 24px; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 12px; text-transform: uppercase; font-weight: bold; }
+        .input-group input { width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid #000; border-radius: 4px; color: white; outline: none; }
+        .input-group input:focus { border-color: var(--blurple); }
+        .btn { width: 100%; padding: 10px; background: var(--blurple); color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
+        .btn:hover { background: var(--blurple-hover); }
+        .btn-secondary { background: var(--bg-secondary); }
+        .btn-secondary:hover { background: var(--bg-tertiary); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* App Layout */
+        #app-screen { display: none; width: 100%; height: 100%; }
+        
+        /* Servers Sidebar */
+        .servers { width: 72px; background: var(--bg-tertiary); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 10px; overflow-y: auto; flex-shrink: 0; }
+        .server-icon { width: 48px; height: 48px; background: var(--bg-primary); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; color: white; font-weight: bold; overflow: hidden; flex-shrink: 0; }
+        .server-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .server-icon:hover, .server-icon.active { border-radius: 16px; background: var(--blurple); }
+
+        /* Channels Sidebar */
+        .sidebar { width: 240px; background: var(--bg-secondary); display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { height: 48px; border-bottom: 1px solid var(--bg-tertiary); display: flex; align-items: center; padding: 0 16px; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .channel-list { flex: 1; overflow-y: auto; padding: 10px 8px; }
+        .channel { padding: 8px; margin-bottom: 2px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 10px; color: var(--text-muted); }
+        .channel:hover, .channel.active { background: rgba(79,84,92,0.32); color: var(--text-normal); }
+        .channel-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-primary); overflow: hidden; position: relative; }
+        .channel-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .status-dot { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bg-secondary); background: var(--text-muted); }
+        .status-dot.online { background: var(--success); }
+        
+        /* User Area */
+        .user-area { height: 52px; background: #292b2f; display: flex; align-items: center; padding: 0 8px; gap: 10px; }
+        .user-area .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-primary); cursor: pointer; overflow: hidden; }
+        .user-area .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .user-area .info { flex: 1; overflow: hidden; }
+        .user-area .info .name { font-size: 14px; font-weight: bold; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+        .user-area .settings-btn { cursor: pointer; padding: 8px; border-radius: 4px; }
+        .user-area .settings-btn:hover { background: rgba(79,84,92,0.32); }
+
+        /* Chat Area */
+        .chat { flex: 1; background: var(--bg-primary); display: flex; flex-direction: column; position: relative; min-width: 0; }
+        .chat-header { height: 48px; border-bottom: 1px solid var(--bg-tertiary); display: flex; align-items: center; padding: 0 16px; font-weight: bold; font-size: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); justify-content: space-between;}
+        .messages { flex: 1; overflow-y: auto; padding: 20px 0; display: flex; flex-direction: column; }
+        .message { display: flex; padding: 10px 20px; gap: 16px; }
+        .message:hover { background: rgba(4,4,5,0.07); }
+        .msg-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-secondary); overflow: hidden; flex-shrink: 0; cursor: pointer; }
+        .msg-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .msg-content { flex: 1; }
+        .msg-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+        .msg-author { font-weight: 500; font-size: 16px; cursor: pointer; }
+        .msg-author:hover { text-decoration: underline; }
+        .msg-time { font-size: 12px; color: var(--text-muted); }
+        .msg-text { color: var(--text-normal); line-height: 1.4; word-wrap: break-word; }
+        
+        /* Chat Input */
+        .chat-input { padding: 0 20px 20px 20px; }
+        .chat-input form { display: flex; background: #40444b; border-radius: 8px; padding: 10px 16px; }
+        .chat-input input { flex: 1; background: transparent; border: none; color: var(--text-normal); font-size: 16px; outline: none; }
+        .chat-input input:disabled { cursor: not-allowed; opacity: 0.5; }
+
+        /* Members Sidebar (Right) */
+        .members-sidebar { width: 240px; background: var(--bg-secondary); display: none; flex-direction: column; flex-shrink: 0; }
+        .members-list { flex: 1; overflow-y: auto; padding: 10px 8px; }
+        .members-group { font-size: 12px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin: 16px 0 8px 8px; }
+
+        /* Modals */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-content { background: var(--bg-primary); width: 600px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .modal-header { padding: 20px; border-bottom: 1px solid var(--bg-tertiary); font-size: 20px; font-weight: bold; display: flex; justify-content: space-between; }
+        .close-btn { cursor: pointer; color: var(--text-muted); font-size: 24px; }
+        .close-btn:hover { color: white; }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+
+        /* Profile Modal Specifics */
+        .profile-card { width: 400px; background: var(--bg-floating); border-radius: 8px; overflow: hidden; position: relative; }
+        .profile-banner { height: 120px; background: var(--blurple); background-size: cover; background-position: center; position: relative; }
+        .profile-avatar { width: 100px; height: 100px; border-radius: 50%; border: 6px solid var(--bg-floating); background: var(--bg-secondary); position: absolute; top: 70px; left: 16px; overflow: hidden; cursor: pointer; }
+        .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-info { padding: 60px 16px 16px 16px; }
+        .profile-name { font-size: 24px; font-weight: bold; margin-bottom: 15px; }
+        .profile-actions { display: flex; gap: 10px; }
+        
+        /* Settings Preview */
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        select { width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid #000; border-radius: 4px; color: white; outline: none; margin-top: 5px; }
+        .clickable-img { cursor: pointer; transition: filter 0.2s; }
+        .clickable-img:hover { filter: brightness(0.7); }
+        .img-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; opacity: 0; font-weight: bold; text-shadow: 0 0 5px black; transition: opacity 0.2s; }
+        .clickable-img:hover + .img-hint, .profile-banner:hover .img-hint { opacity: 1; }
+
+        .hidden { display: none !important; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+    </style>
+    <style id="theme-style"></style>
+    <script>
+        const themes = {
+            "Default Dark": { primary: "#36393f", secondary: "#2f3136", tertiary: "#202225", floating: "#18191c", text: "#dcddde", muted: "#72767d", accent: "#5865F2" },
+            "Spiderman": { primary: "#8b0000", secondary: "#5c0000", tertiary: "#330000", floating: "#1a0000", text: "#ffffff", muted: "#ff9999", accent: "#0000ff" },
+            "Batman": { primary: "#1a1a1a", secondary: "#0d0d0d", tertiary: "#000000", floating: "#050505", text: "#e6e6e6", muted: "#808080", accent: "#ffff00" },
+            "Avengers": { primary: "#2c3e50", secondary: "#1a252f", tertiary: "#11181f", floating: "#080c0f", text: "#ecf0f1", muted: "#bdc3c7", accent: "#e74c3c" },
+            "Brainrot": { primary: "#ff00ff", secondary: "#00ffff", tertiary: "#ffff00", floating: "#00ff00", text: "#000000", muted: "#333333", accent: "#ff0000" },
+            "Skibidi Toilet": { primary: "#4a4a4a", secondary: "#333333", tertiary: "#1a1a1a", floating: "#0d0d0d", text: "#ffffff", muted: "#b3b3b3", accent: "#8b4513" },
+            "Sigma Grindset": { primary: "#111111", secondary: "#000000", tertiary: "#0a0a0a", floating: "#050505", text: "#ffd700", muted: "#b8860b", accent: "#ff8c00" },
+            "Matrix": { primary: "#001a00", secondary: "#000d00", tertiary: "#000000", floating: "#000500", text: "#00ff00", muted: "#008000", accent: "#00ff00" },
+            "Barbie": { primary: "#ff66b2", secondary: "#ff3399", tertiary: "#cc0066", floating: "#99004d", text: "#ffffff", muted: "#ffb3d9", accent: "#ff007f" },
+            "Oppenheimer": { primary: "#2b2b2b", secondary: "#1c1c1c", tertiary: "#0f0f0f", floating: "#050505", text: "#ffaa00", muted: "#8c5c00", accent: "#ff4500" },
+            "Shrek": { primary: "#4c5c24", secondary: "#3a471c", tertiary: "#283013", floating: "#161a0a", text: "#d4e0b1", muted: "#9eb36b", accent: "#8b9c3a" },
+            "Cyberpunk": { primary: "#000b18", secondary: "#00050c", tertiary: "#000000", floating: "#000205", text: "#00ff9f", muted: "#008050", accent: "#fcee0a" },
+            "Dracula": { primary: "#282a36", secondary: "#1e1f29", tertiary: "#191a21", floating: "#14151a", text: "#f8f8f2", muted: "#6272a4", accent: "#ff79c6" },
+            "Nord": { primary: "#3b4252", secondary: "#2e3440", tertiary: "#242933", floating: "#1f232b", text: "#d8dee9", muted: "#4c566a", accent: "#88c0d0" },
+            "Gru": { primary: "#333333", secondary: "#222222", tertiary: "#111111", floating: "#000000", text: "#e0e0e0", muted: "#888888", accent: "#555555" },
+            "Minions": { primary: "#fce029", secondary: "#e5c817", tertiary: "#cca300", floating: "#b28f00", text: "#000000", muted: "#333333", accent: "#0055ff" },
+            "Gojo": { primary: "#1a1a2e", secondary: "#16213e", tertiary: "#0f3460", floating: "#0a192f", text: "#e94560", muted: "#8b9bb4", accent: "#00d2ff" },
+            "Sukuna": { primary: "#2b0000", secondary: "#1a0000", tertiary: "#0d0000", floating: "#050000", text: "#ff4d4d", muted: "#990000", accent: "#ff0000" },
+            "Goku": { primary: "#ff7f00", secondary: "#cc6600", tertiary: "#994c00", floating: "#663300", text: "#ffffff", muted: "#ffcc99", accent: "#0000ff" },
+            "Vegeta": { primary: "#000080", secondary: "#000066", tertiary: "#00004d", floating: "#000033", text: "#ffffff", muted: "#ccccff", accent: "#ffff00" },
+            "Naruto": { primary: "#ff8c00", secondary: "#cc7000", tertiary: "#995400", floating: "#663800", text: "#ffffff", muted: "#ffcc99", accent: "#0000ff" },
+            "Sasuke": { primary: "#2f2f4f", secondary: "#1f1f3f", tertiary: "#0f0f2f", floating: "#05051f", text: "#ffffff", muted: "#9999cc", accent: "#8a2be2" },
+            "Luffy": { primary: "#ff0000", secondary: "#cc0000", tertiary: "#990000", floating: "#660000", text: "#ffffff", muted: "#ff9999", accent: "#ffff00" },
+            "Zoro": { primary: "#006400", secondary: "#004d00", tertiary: "#003300", floating: "#001a00", text: "#ffffff", muted: "#99cc99", accent: "#000000" },
+            "Minecraft": { primary: "#5c8a21", secondary: "#466b18", tertiary: "#314c0f", floating: "#1c2d06", text: "#ffffff", muted: "#a3c27c", accent: "#5c3a21" },
+            "Roblox": { primary: "#2b2b2b", secondary: "#1f1f1f", tertiary: "#141414", floating: "#0a0a0a", text: "#ffffff", muted: "#999999", accent: "#ff0000" },
+            "Fortnite": { primary: "#2b00ff", secondary: "#1f00cc", tertiary: "#140099", floating: "#0a0066", text: "#ffffff", muted: "#9999ff", accent: "#ff00ff" },
+            "Among Us": { primary: "#c51111", secondary: "#9a0d0d", tertiary: "#700909", floating: "#450505", text: "#ffffff", muted: "#ff9999", accent: "#112bc5" },
+            "FNAF": { primary: "#331a00", secondary: "#221100", tertiary: "#110800", floating: "#050200", text: "#ffffff", muted: "#cc9966", accent: "#cc0000" },
+            "Breaking Bad": { primary: "#093009", secondary: "#062206", tertiary: "#041504", floating: "#020a02", text: "#ffffff", muted: "#669966", accent: "#e6e600" },
+            "Better Call Saul": { primary: "#b38f00", secondary: "#8c7000", tertiary: "#665200", floating: "#403300", text: "#ffffff", muted: "#ffe680", accent: "#0033cc" },
+            "The Boys": { primary: "#1a1a1a", secondary: "#0d0d0d", tertiary: "#000000", floating: "#050505", text: "#ffffff", muted: "#808080", accent: "#cc0000" },
+            "Invincible": { primary: "#ffd700", secondary: "#ccac00", tertiary: "#998100", floating: "#665600", text: "#000000", muted: "#666666", accent: "#0000ff" },
+            "Star Wars": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffe81f", muted: "#b3a215", accent: "#ff0000" },
+            "Harry Potter": { primary: "#740001", secondary: "#5c0001", tertiary: "#450001", floating: "#2e0001", text: "#d3a625", muted: "#eeba30", accent: "#000000" },
+            "Lord of the Rings": { primary: "#2b3a2a", secondary: "#1f2a1f", tertiary: "#141c14", floating: "#0a0e0a", text: "#d4af37", muted: "#aa8c2c", accent: "#8b0000" },
+            "Game of Thrones": { primary: "#1a2421", secondary: "#111816", tertiary: "#080c0b", floating: "#040605", text: "#c0c0c0", muted: "#808080", accent: "#8b0000" },
+            "Stranger Things": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ff0000", muted: "#cc0000", accent: "#0000ff" },
+            "Squid Game": { primary: "#ff0055", secondary: "#cc0044", tertiary: "#990033", floating: "#660022", text: "#ffffff", muted: "#ff99bb", accent: "#00cc99" },
+            "Rick and Morty": { primary: "#00ff00", secondary: "#00cc00", tertiary: "#009900", floating: "#006600", text: "#000000", muted: "#333333", accent: "#00ffff" },
+            "Spongebob": { primary: "#ffff00", secondary: "#cccc00", tertiary: "#999900", floating: "#666600", text: "#000000", muted: "#333333", accent: "#8b4513" },
+            "Patrick": { primary: "#ff99cc", secondary: "#cc7a102", tertiary: "#995c7a", floating: "#663d52", text: "#000000", muted: "#333333", accent: "#99ff33" },
+            "Squidward": { primary: "#66cccc", secondary: "#52a3a3", tertiary: "#3d7a7a", floating: "#295252", text: "#000000", muted: "#333333", accent: "#8b4513" },
+            "Mr Krabs": { primary: "#ff0000", secondary: "#cc0000", tertiary: "#990000", floating: "#660000", text: "#ffffff", muted: "#ff9999", accent: "#0000ff" },
+            "Plankton": { primary: "#006600", secondary: "#004d00", tertiary: "#003300", floating: "#001a00", text: "#ffffff", muted: "#99cc99", accent: "#ff0000" },
+            "Doge": { primary: "#e8c37d", secondary: "#c4a365", tertiary: "#a1844e", floating: "#7d663a", text: "#000000", muted: "#4a4a4a", accent: "#ff0000" },
+            "Pepe": { primary: "#507d2a", secondary: "#3f6321", tertiary: "#2e4a18", floating: "#1e300f", text: "#ffffff", muted: "#a3c27c", accent: "#ff0000" },
+            "Gigachad": { primary: "#1f1f1f", secondary: "#141414", tertiary: "#0a0a0a", floating: "#000000", text: "#ffffff", muted: "#808080", accent: "#ffffff" },
+            "Walter White": { primary: "#f5f5dc", secondary: "#e0e0c8", tertiary: "#ccccb3", floating: "#b8b89e", text: "#000000", muted: "#666666", accent: "#006600" },
+            "Jesse Pinkman": { primary: "#ffcc00", secondary: "#cc9900", tertiary: "#996600", floating: "#663300", text: "#000000", muted: "#333333", accent: "#ff0000" },
+            "Saul Goodman": { primary: "#ff99cc", secondary: "#cc7a102", tertiary: "#995c7a", floating: "#663d52", text: "#000000", muted: "#333333", accent: "#ffff00" },
+            "Gus Fring": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#ffff00" },
+            "Mike Ehrmantraut": { primary: "#333333", secondary: "#222222", tertiary: "#111111", floating: "#000000", text: "#ffffff", muted: "#888888", accent: "#000000" },
+            "Hank Schrader": { primary: "#0000ff", secondary: "#0000cc", tertiary: "#000099", floating: "#000066", text: "#ffffff", muted: "#9999ff", accent: "#ff0000" },
+            "Marie Schrader": { primary: "#800080", secondary: "#660066", tertiary: "#4d004d", floating: "#330033", text: "#ffffff", muted: "#cc99cc", accent: "#ff00ff" },
+            "Skyler White": { primary: "#ffffff", secondary: "#e6e6e6", tertiary: "#cccccc", floating: "#b3b3b3", text: "#000000", muted: "#333333", accent: "#0000ff" },
+            "Walter Jr": { primary: "#ff0000", secondary: "#cc0000", tertiary: "#990000", floating: "#660000", text: "#ffffff", muted: "#ff9999", accent: "#0000ff" },
+            "Tuco Salamanca": { primary: "#ff0000", secondary: "#cc0000", tertiary: "#990000", floating: "#660000", text: "#ffffff", muted: "#ff9999", accent: "#ffff00" },
+            "Hector Salamanca": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#ff0000" },
+            "Lalo Salamanca": { primary: "#ff0000", secondary: "#cc0000", tertiary: "#990000", floating: "#660000", text: "#ffffff", muted: "#ff9999", accent: "#000000" },
+            "Nacho Varga": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#ff0000" },
+            "Howard Hamlin": { primary: "#0000ff", secondary: "#0000cc", tertiary: "#000099", floating: "#000066", text: "#ffffff", muted: "#9999ff", accent: "#ffff00" },
+            "Kim Wexler": { primary: "#ffffff", secondary: "#e6e6e6", tertiary: "#cccccc", floating: "#b3b3b3", text: "#000000", muted: "#333333", accent: "#0000ff" },
+            "Chuck McGill": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#ffff00" },
+            "Homelander": { primary: "#0000ff", secondary: "#0000cc", tertiary: "#000099", floating: "#000066", text: "#ffffff", muted: "#9999ff", accent: "#ff0000" },
+            "Billy Butcher": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#ff0000" },
+            "Hughie Campbell": { primary: "#00ff00", secondary: "#00cc00", tertiary: "#009900", floating: "#006600", text: "#000000", muted: "#333333", accent: "#0000ff" },
+            "Starlight": { primary: "#ffff00", secondary: "#cccc00", tertiary: "#999900", floating: "#666600", text: "#000000", muted: "#333333", accent: "#ffffff" },
+            "Queen Maeve": { primary: "#8b0000", secondary: "#5c0000", tertiary: "#330000", floating: "#1a0000", text: "#ffffff", muted: "#ff9999", accent: "#c0c0c0" },
+            "A-Train": { primary: "#0000ff", secondary: "#0000cc", tertiary: "#000099", floating: "#000066", text: "#ffffff", muted: "#9999ff", accent: "#ffffff" },
+            "The Deep": { primary: "#006400", secondary: "#004d00", tertiary: "#003300", floating: "#001a00", text: "#ffffff", muted: "#99cc99", accent: "#ffff00" },
+            "Black Noir": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#000000" },
+            "Soldier Boy": { primary: "#006400", secondary: "#004d00", tertiary: "#003300", floating: "#001a00", text: "#ffffff", muted: "#99cc99", accent: "#ff0000" },
+            "Omni-Man": { primary: "#ff0000", secondary: "#cc0000", tertiary: "#990000", floating: "#660000", text: "#ffffff", muted: "#ff9999", accent: "#ffffff" },
+            "Atom Eve": { primary: "#ff66b2", secondary: "#ff3399", tertiary: "#cc0066", floating: "#99004d", text: "#ffffff", muted: "#ffb3d9", accent: "#ff0000" },
+            "Darth Vader": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#ff0000" },
+            "Luke Skywalker": { primary: "#ffffff", secondary: "#e6e6e6", tertiary: "#cccccc", floating: "#b3b3b3", text: "#000000", muted: "#333333", accent: "#00ff00" },
+            "Yoda": { primary: "#5c8a21", secondary: "#466b18", tertiary: "#314c0f", floating: "#1c2d06", text: "#ffffff", muted: "#a3c27c", accent: "#00ff00" },
+            "Obi-Wan Kenobi": { primary: "#ffffff", secondary: "#e6e6e6", tertiary: "#cccccc", floating: "#b3b3b3", text: "#000000", muted: "#333333", accent: "#0000ff" },
+            "Han Solo": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#ff0000" },
+            "Chewbacca": { primary: "#8b4513", secondary: "#6b340e", tertiary: "#4b2409", floating: "#2b1404", text: "#ffffff", muted: "#d2b48c", accent: "#000000" },
+            "Princess Leia": { primary: "#ffffff", secondary: "#e6e6e6", tertiary: "#cccccc", floating: "#b3b3b3", text: "#000000", muted: "#333333", accent: "#ffffff" },
+            "Boba Fett": { primary: "#5c8a21", secondary: "#466b18", tertiary: "#314c0f", floating: "#1c2d06", text: "#ffffff", muted: "#a3c27c", accent: "#ff0000" },
+            "Mandalorian": { primary: "#c0c0c0", secondary: "#a0a0a0", tertiary: "#808080", floating: "#606060", text: "#000000", muted: "#333333", accent: "#000000" },
+            "Grogu": { primary: "#5c8a21", secondary: "#466b18", tertiary: "#314c0f", floating: "#1c2d06", text: "#ffffff", muted: "#a3c27c", accent: "#000000" },
+            "Ahsoka Tano": { primary: "#ff8c00", secondary: "#cc7000", tertiary: "#995400", floating: "#663800", text: "#ffffff", muted: "#ffcc99", accent: "#ffffff" },
+            "Darth Maul": { primary: "#ff0000", secondary: "#cc0000", tertiary: "#990000", floating: "#660000", text: "#000000", muted: "#333333", accent: "#000000" },
+            "Kylo Ren": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#ff0000" },
+            "Rey": { primary: "#ffffff", secondary: "#e6e6e6", tertiary: "#cccccc", floating: "#b3b3b3", text: "#000000", muted: "#333333", accent: "#ffff00" },
+            "Finn": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#0000ff" },
+            "Poe Dameron": { primary: "#ff8c00", secondary: "#cc7000", tertiary: "#995400", floating: "#663800", text: "#ffffff", muted: "#ffcc99", accent: "#000000" },
+            "BB-8": { primary: "#ff8c00", secondary: "#cc7000", tertiary: "#995400", floating: "#663800", text: "#ffffff", muted: "#ffcc99", accent: "#ffffff" },
+            "R2-D2": { primary: "#0000ff", secondary: "#0000cc", tertiary: "#000099", floating: "#000066", text: "#ffffff", muted: "#9999ff", accent: "#ffffff" },
+            "C-3PO": { primary: "#ffd700", secondary: "#ccac00", tertiary: "#998100", floating: "#665600", text: "#000000", muted: "#666666", accent: "#000000" },
+            "Gollum": { primary: "#666666", secondary: "#525252", tertiary: "#3d3d3d", floating: "#292929", text: "#ffffff", muted: "#b3b3b3", accent: "#000000" },
+            "Sauron": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ff0000", muted: "#cc0000", accent: "#ff0000" },
+            "Gandalf": { primary: "#ffffff", secondary: "#e6e6e6", tertiary: "#cccccc", floating: "#b3b3b3", text: "#000000", muted: "#333333", accent: "#ffffff" },
+            "Frodo": { primary: "#006400", secondary: "#004d00", tertiary: "#003300", floating: "#001a00", text: "#ffffff", muted: "#99cc99", accent: "#d4af37" },
+            "Samwise": { primary: "#8b4513", secondary: "#6b340e", tertiary: "#4b2409", floating: "#2b1404", text: "#ffffff", muted: "#d2b48c", accent: "#006400" },
+            "Aragorn": { primary: "#000000", secondary: "#0a0a0a", tertiary: "#141414", floating: "#1f1f1f", text: "#ffffff", muted: "#808080", accent: "#c0c0c0" },
+            "Legolas": { primary: "#5c8a21", secondary: "#466b18", tertiary: "#314c0f", floating: "#1c2d06", text: "#ffffff", muted: "#a3c27c", accent: "#ffff00" },
+            "Gimli": { primary: "#8b0000", secondary: "#5c0000", tertiary: "#330000", floating: "#1a0000", text: "#ffffff", muted: "#ff9999", accent: "#c0c0c0" }
+        };
+
+        function applyTheme(themeName) {
+            const theme = themes[themeName] || themes["Default Dark"];
+            const style = document.getElementById('theme-style');
+            style.innerHTML = `
+                :root {
+                    --bg-primary: ${theme.primary};
+                    --bg-secondary: ${theme.secondary};
+                    --bg-tertiary: ${theme.tertiary};
+                    --bg-floating: ${theme.floating};
+                    --text-normal: ${theme.text};
+                    --text-muted: ${theme.muted};
+                    --blurple: ${theme.accent};
+                }
+            `;
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Auth Screen -->
+    <div id="auth-screen">
+        <div class="auth-box">
+            <h2>Welcome to DiscordRip</h2>
+            <form id="auth-form">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="auth-email" required>
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="auth-password" required>
+                </div>
+                <button type="submit" class="btn" id="login-btn">Login</button>
+                <button type="button" class="btn btn-secondary" id="signup-btn">Register</button>
+                <button type="button" class="btn btn-secondary" id="anon-btn" style="margin-top: 10px;">Play Anonymously</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app-screen">
+        <!-- Servers -->
+        <div class="servers">
+            <div class="server-icon active" title="Direct Messages" id="home-btn">
+                <svg width="28" height="20" viewBox="0 0 28 20" fill="white"><path d="M23.0212 1.67671C21.3107 0.879656 19.5079 0.318797 17.6584 0C17.4062 0.461742 17.1749 0.934541 16.9708 1.4184C15.003 1.12145 12.9974 1.12145 11.0283 1.4184C10.819 0.934541 10.589 0.461742 10.3368 0C8.48074 0.318797 6.68442 0.879656 4.97391 1.67671C1.56727 6.77853 0.649666 11.7538 1.11108 16.652C3.10102 18.1418 5.3262 19.2743 7.69177 20C8.22338 19.2743 8.69519 18.4993 9.09812 17.691C8.32996 17.3997 7.58522 17.0424 6.87684 16.6135C7.06531 16.4762 7.24726 16.3387 7.42403 16.1847C11.5911 18.1749 16.408 18.1749 20.5763 16.1847C20.7531 16.3332 20.9351 16.4762 21.1171 16.6135C20.41 17.0369 19.6639 17.3997 18.897 17.691C19.3052 18.4993 19.7718 19.2689 20.3086 20C22.6688 19.2743 24.894 18.1418 26.884 16.652C27.43 10.9731 25.9665 6.04728 23.0212 1.67671ZM9.68041 13.6383C8.39754 13.6383 7.34085 12.4453 7.34085 10.994C7.34085 9.54272 8.37155 8.34973 9.68041 8.34973C10.9893 8.34973 12.0363 9.54272 12.0103 10.994C12.0103 12.4453 10.9893 13.6383 9.68041 13.6383ZM18.3161 13.6383C17.0332 13.6383 15.9765 12.4453 15.9765 10.994C15.9765 9.54272 17.0072 8.34973 18.3161 8.34973C19.625 8.34973 20.6719 9.54272 20.646 10.994C20.646 12.4453 19.625 13.6383 18.3161 13.6383Z"/></svg>
+            </div>
+            <div class="server-icon" id="main-server-btn" title="Main Server" style="background: var(--blurple);">🌍</div>
+        </div>
+
+        <!-- Channels / DMs Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header flex-between">
+                <input type="text" placeholder="Find or start a conversation" style="width: 100%; background: var(--bg-tertiary); border: none; padding: 6px; border-radius: 4px; color: white; font-size: 12px; outline: none;">
+            </div>
+            <div class="channel-list" style="padding: 10px 8px 0 8px;">
+                <div class="channel active" id="friends-tab-btn">
+                    <span style="font-size: 20px; margin-right: 10px;">👋</span> Friends
+                </div>
+            </div>
+            <div style="font-size: 12px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin: 16px 0 8px 16px; display: flex; justify-content: space-between; align-items: center; padding-right: 16px;">
+                <span>Direct Messages</span>
+                <button id="create-group-btn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;">+</button>
+            </div>
+            <div class="channel-list" id="chat-list" style="padding-top: 0;">
+                <!-- Chats load here -->
+            </div>
+            
+            <!-- Current User Area -->
+            <div class="user-area">
+                <div class="avatar" id="my-avatar-btn"><img src="" id="my-avatar-img" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'"></div>
+                <div class="info">
+                    <div class="name" id="my-username">Loading...</div>
+                </div>
+                <div class="settings-btn" id="open-settings">⚙️</div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat" id="chat-area">
+            <div class="chat-header">
+                <span id="current-chat-name">Select a chat</span>
+                <button id="add-user-to-group" class="hidden btn-secondary" style="padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; color: white;">Add User</button>
+            </div>
+            <div class="messages" id="messages-container">
+                <!-- Messages load here -->
+            </div>
+            <div class="chat-input">
+                <form id="message-form">
+                    <input type="text" id="message-input" placeholder="Message..." disabled autocomplete="off">
+                </form>
+            </div>
+        </div>
+
+        <!-- Friends Area -->
+        <div class="chat hidden" id="friends-area" style="background: var(--bg-primary); flex: 1; display: flex; flex-direction: column;">
+            <div class="chat-header" style="justify-content: flex-start; gap: 20px;">
+                <span style="font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 8px;"><span style="font-size: 20px;">👋</span> Friends</span>
+                <div style="width: 1px; height: 24px; background: var(--bg-secondary); margin: 0 10px;"></div>
+                <div style="display: flex; gap: 15px; font-size: 14px; color: var(--text-muted); align-items: center;">
+                    <span style="cursor: pointer; color: var(--text-normal); font-weight: 500;">All Friends</span>
+                    <button id="add-friend-header-btn" style="background: var(--success); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add Friend</button>
+                </div>
+            </div>
+            <div style="padding: 20px; flex: 1; overflow-y: auto;">
+                <div style="font-size: 12px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 16px;">All Friends — <span id="friends-count">0</span></div>
+                <div id="friends-list-container">
+                    <!-- Friends list will be rendered here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Members Sidebar (Main Server Only) -->
+        <div class="members-sidebar" id="members-sidebar">
+            <div class="members-group">Online — <span id="online-count">0</span></div>
+            <div class="channel-list" id="online-list"></div>
+            <div class="members-group">Offline — <span id="offline-count">0</span></div>
+            <div class="channel-list" id="offline-list"></div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>User Settings</span>
+                <span class="close-btn" id="close-settings">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); margin-bottom: 10px; font-size: 14px;">Click your Avatar or Banner below to change them! (No GIFs allowed)</p>
+                <!-- Preview -->
+                <div class="profile-card" style="width: 100%; margin-bottom: 20px;">
+                    <div class="profile-banner clickable-img" id="preview-banner">
+                        <span class="img-hint">CHANGE BANNER</span>
+                    </div>
+                    <div class="profile-avatar clickable-img">
+                        <img src="" id="preview-avatar-img" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                        <span class="img-hint">CHANGE PFP</span>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-name" id="preview-name">Username</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">Your UID: <span id="my-uid-display"></span></div>
+                    </div>
+                </div>
+
+                <div class="settings-grid">
+                    <div class="input-group">
+                        <label>Display Name</label>
+                        <input type="text" id="set-name">
+                    </div>
+                    <div class="input-group">
+                        <label>Theme</label>
+                        <select id="set-theme">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                </div>
+                <button class="btn" id="save-settings" style="margin-top: 20px;">Save Changes</button>
+                <button class="btn btn-secondary" id="logout-btn" style="background: var(--danger);">Log Out</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile View Modal -->
+    <div id="profile-modal" class="modal-overlay">
+        <div class="modal-content profile-card" style="width: 400px; max-height: none;">
+            <div class="profile-banner" id="pm-banner"></div>
+            <div class="profile-avatar">
+                <img src="" id="pm-avatar" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+            </div>
+            <div class="profile-info">
+                <div class="profile-name" id="pm-name">Username</div>
+                <div class="profile-actions">
+                    <button id="pm-add-btn" class="btn">Add Friend</button>
+                    <button id="pm-msg-btn" class="btn btn-secondary">Message</button>
+                </div>
+            </div>
+            <span class="close-btn" id="close-profile" style="position: absolute; top: 10px; right: 15px; text-shadow: 0 0 5px black;">&times;</span>
+        </div>
+    </div>
+
+    <!-- Hidden File Input -->
+    <input type="file" id="file-input" accept="image/png, image/jpeg, image/webp" style="display: none;">
+
+    <!-- Firebase & Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, onSnapshot, query, where, orderBy, addDoc, serverTimestamp, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD9LZjzznDnWzxn3HSpzul-0DQKDjNQcsA",
+            authDomain: "discordrip-ecaf8.firebaseapp.com",
+            projectId: "discordrip-ecaf8",
+            storageBucket: "discordrip-ecaf8.firebasestorage.app",
+            messagingSenderId: "395946344209",
+            appId: "1:395946344209:web:1638de7620e4f025e696b0",
+            measurementId: "G-HXGG9VK207"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // State
+        let currentUserData = null;
+        let currentChatId = null;
+        let usersCache = {};
+        let unsubMessages = null;
+        let unsubChats = null;
+        let isMainServerView = false;
+        let viewingProfileUid = null;
+
+        function applyUserStyle(element, user) {
+            // Colors, gradients, and effects removed for now.
+        }
+
+        function isFriend(uid) {
+            return currentUserData && currentUserData.friends && currentUserData.friends.includes(uid);
+        }
+
+        function promptImage(type) {
+            const url = prompt(`Enter new ${type} image URL:\n(Note: .gif files are NOT allowed)`);
+            if (!url) return null;
+            if (url.toLowerCase().includes('.gif')) {
+                alert('GIFs are not allowed for profile pictures or banners!');
+                return null;
+            }
+            return url;
+        }
+
+        // Auth Logic & Presence
+        async function setPresence(status) {
+            if(auth.currentUser) {
+                await updateDoc(doc(db, 'users', auth.currentUser.uid), { status: status });
+            }
+        }
+        window.addEventListener('beforeunload', () => setPresence('offline'));
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('app-screen').style.display = 'flex';
+                await initUser(user);
+                await setPresence('online');
+                loadDMs();
+                listenToAllUsers();
+            } else {
+                document.getElementById('auth-screen').style.display = 'flex';
+                document.getElementById('app-screen').style.display = 'none';
+                if(unsubChats) unsubChats();
+                if(unsubMessages) unsubMessages();
+            }
+        });
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const pass = document.getElementById('auth-password').value;
+            try { await signInWithEmailAndPassword(auth, email, pass); } 
+            catch (err) { alert("Login failed: " + err.message); }
+        });
+
+        document.getElementById('signup-btn').addEventListener('click', async () => {
+            const email = document.getElementById('auth-email').value;
+            const pass = document.getElementById('auth-password').value;
+            if(!email || !pass) return alert("Enter email and password");
+            try { await createUserWithEmailAndPassword(auth, email, pass); } 
+            catch (err) { alert("Signup failed: " + err.message); }
+        });
+
+        document.getElementById('anon-btn').addEventListener('click', async () => {
+            try { await signInAnonymously(auth); } 
+            catch (err) { alert("Anon failed: " + err.message); }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            await setPresence('offline');
+            signOut(auth);
+            applyTheme('Default Dark');
+            document.getElementById('settings-modal').style.display = 'none';
+        });
+
+        // User Initialization
+        async function initUser(user) {
+            const userRef = doc(db, 'users', user.uid);
+            const snap = await getDoc(userRef);
+            if (!snap.exists()) {
+                currentUserData = {
+                    uid: user.uid,
+                    displayName: user.isAnonymous ? `Anon_${Math.floor(Math.random()*1000)}` : user.email.split('@')[0],
+                    photoURL: '', bannerURL: '', status: 'online', friends: [], theme: 'Default Dark'
+                };
+                await setDoc(userRef, currentUserData);
+            } else {
+                currentUserData = snap.data();
+                if(!currentUserData.friends) currentUserData.friends = [];
+                if(!currentUserData.theme) currentUserData.theme = 'Default Dark';
+            }
+            applyTheme(currentUserData.theme);
+            updateMyUI();
+        }
+
+        function updateMyUI() {
+            document.getElementById('my-username').textContent = currentUserData.displayName;
+            document.getElementById('my-uid-display').textContent = currentUserData.uid;
+            applyUserStyle(document.getElementById('my-username'), currentUserData);
+            if(currentUserData.photoURL) document.getElementById('my-avatar-img').src = currentUserData.photoURL;
+        }
+
+        function listenToAllUsers() {
+            onSnapshot(collection(db, 'users'), (snap) => {
+                snap.forEach(doc => { usersCache[doc.id] = doc.data(); });
+                updateMyUI(); 
+                if(currentChatId) renderMessagesCache(); 
+                if(isMainServerView) renderServerMembers();
+            });
+        }
+
+        // Settings Modal
+        const settingsModal = document.getElementById('settings-modal');
+        let tempAvatar = '';
+        let tempBanner = '';
+        let currentUploadTarget = null;
+        
+        // Populate Theme Selector
+        const themeSelect = document.getElementById('set-theme');
+        Object.keys(themes).forEach(themeName => {
+            const option = document.createElement('option');
+            option.value = themeName;
+            option.textContent = themeName;
+            themeSelect.appendChild(option);
+        });
+
+        document.getElementById('open-settings').addEventListener('click', () => {
+            document.getElementById('set-name').value = currentUserData.displayName || '';
+            document.getElementById('set-theme').value = currentUserData.theme || 'Default Dark';
+            tempAvatar = currentUserData.photoURL || '';
+            tempBanner = currentUserData.bannerURL || '';
+            updatePreview();
+            settingsModal.style.display = 'flex';
+        });
+        document.getElementById('set-theme').addEventListener('change', (e) => {
+            applyTheme(e.target.value);
+        });
+
+        document.getElementById('close-settings').addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+            applyTheme(currentUserData.theme || 'Default Dark'); // Revert theme if cancelled
+        });
+
+        document.getElementById('save-settings').addEventListener('click', async () => {
+            const newData = {
+                displayName: document.getElementById('set-name').value,
+                photoURL: tempAvatar,
+                bannerURL: tempBanner,
+                theme: document.getElementById('set-theme').value
+            };
+            await updateDoc(doc(db, 'users', auth.currentUser.uid), newData);
+            currentUserData = { ...currentUserData, ...newData };
+            applyTheme(currentUserData.theme);
+            updateMyUI();
+            settingsModal.style.display = 'none';
+        });
+
+        document.getElementById('file-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.type === 'image/gif') {
+                alert('GIFs are not allowed!');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File too large. Max 5MB.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    let maxWidth = currentUploadTarget === 'Avatar' ? 256 : 800;
+                    let maxHeight = currentUploadTarget === 'Avatar' ? 256 : 300;
+                    
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height *= maxWidth / width;
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width *= maxHeight / height;
+                            height = maxHeight;
+                        }
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    
+                    if (currentUploadTarget === 'Avatar') {
+                        tempAvatar = dataUrl;
+                    } else {
+                        tempBanner = dataUrl;
+                    }
+                    updatePreview();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = ''; // reset
+        });
+
+        document.getElementById('preview-avatar-img').parentElement.addEventListener('click', () => {
+            currentUploadTarget = 'Avatar';
+            document.getElementById('file-input').click();
+        });
+        document.getElementById('preview-banner').addEventListener('click', () => {
+            currentUploadTarget = 'Banner';
+            document.getElementById('file-input').click();
+        });
+
+        function updatePreview() {
+            const nameEl = document.getElementById('preview-name');
+            nameEl.textContent = document.getElementById('set-name').value || 'Username';
+            applyUserStyle(nameEl, {});
+            document.getElementById('preview-avatar-img').src = tempAvatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+            document.getElementById('preview-banner').style.backgroundImage = tempBanner ? `url(${tempBanner})` : 'none';
+        }
+
+        ['set-name'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updatePreview);
+        });
+
+        // Profile Modal
+        const profileModal = document.getElementById('profile-modal');
+        document.getElementById('close-profile').addEventListener('click', () => profileModal.style.display = 'none');
+
+        function openProfile(uid) {
+            const user = usersCache[uid];
+            if(!user) return;
+            viewingProfileUid = uid;
+            
+            document.getElementById('pm-banner').style.backgroundImage = user.bannerURL ? `url(${user.bannerURL})` : 'none';
+            document.getElementById('pm-avatar').src = user.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png';
+            const nameEl = document.getElementById('pm-name');
+            nameEl.textContent = user.displayName;
+            applyUserStyle(nameEl, user);
+
+            const addBtn = document.getElementById('pm-add-btn');
+            if(uid === auth.currentUser.uid) {
+                addBtn.style.display = 'none';
+                document.getElementById('pm-msg-btn').style.display = 'none';
+            } else {
+                addBtn.style.display = 'block';
+                document.getElementById('pm-msg-btn').style.display = 'block';
+                if(isFriend(uid)) {
+                    addBtn.textContent = 'Friends ✓';
+                    addBtn.disabled = true;
+                } else {
+                    addBtn.textContent = 'Add Friend';
+                    addBtn.disabled = false;
+                }
+            }
+            profileModal.style.display = 'flex';
+        }
+
+        document.getElementById('pm-add-btn').addEventListener('click', async () => {
+            if(!viewingProfileUid) return;
+            await updateDoc(doc(db, 'users', auth.currentUser.uid), { friends: arrayUnion(viewingProfileUid) });
+            // Also add us to their friends list for simplicity
+            await updateDoc(doc(db, 'users', viewingProfileUid), { friends: arrayUnion(auth.currentUser.uid) });
+            currentUserData.friends.push(viewingProfileUid);
+            document.getElementById('pm-add-btn').textContent = 'Friends ✓';
+            document.getElementById('pm-add-btn').disabled = true;
+            if(currentChatId) openChat(currentChatId, document.getElementById('current-chat-name').textContent, false); // Refresh input state
+        });
+
+        document.getElementById('pm-msg-btn').addEventListener('click', async () => {
+            if(!viewingProfileUid) return;
+            profileModal.style.display = 'none';
+            document.getElementById('home-btn').click(); // Go to DMs
+            
+            // Dispatch the messageUser event to handle chat creation/opening
+            document.dispatchEvent(new CustomEvent('messageUser', {detail: viewingProfileUid}));
+        });
+
+        // Navigation
+        function showFriendsView() {
+            document.getElementById('chat-area').classList.add('hidden');
+            document.getElementById('friends-area').classList.remove('hidden');
+            document.querySelectorAll('.channel').forEach(el => el.classList.remove('active'));
+            document.getElementById('friends-tab-btn').classList.add('active');
+            renderFriendsList();
+        }
+
+        document.getElementById('friends-tab-btn').addEventListener('click', showFriendsView);
+
+        document.getElementById('home-btn').addEventListener('click', () => {
+            isMainServerView = false;
+            document.getElementById('create-group-btn').style.display = 'block';
+            document.getElementById('members-sidebar').style.display = 'none';
+            document.querySelectorAll('.server-icon').forEach(el => el.classList.remove('active'));
+            document.getElementById('home-btn').classList.add('active');
+            
+            // Show friends tab and direct messages header
+            document.getElementById('friends-tab-btn').parentElement.style.display = 'block';
+            document.getElementById('friends-tab-btn').parentElement.nextElementSibling.style.display = 'flex';
+            
+            loadDMs();
+            showFriendsView();
+        });
+
+        document.getElementById('main-server-btn').addEventListener('click', async () => {
+            isMainServerView = true;
+            document.getElementById('create-group-btn').style.display = 'none';
+            document.getElementById('members-sidebar').style.display = 'flex';
+            document.querySelectorAll('.server-icon').forEach(el => el.classList.remove('active'));
+            document.getElementById('main-server-btn').classList.add('active');
+            
+            // Hide friends tab and direct messages header
+            document.getElementById('friends-tab-btn').parentElement.style.display = 'none';
+            document.getElementById('friends-tab-btn').parentElement.nextElementSibling.style.display = 'none';
+            
+            document.getElementById('chat-area').classList.remove('hidden');
+            document.getElementById('friends-area').classList.add('hidden');
+            
+            // Setup Main Server Channels
+            const list = document.getElementById('chat-list');
+            list.innerHTML = `
+                <div class="channel active" id="ms-general">
+                    <span style="font-size: 20px; color: var(--text-muted);">#</span> general
+                </div>
+            `;
+            
+            // Ensure main server doc exists
+            const msRef = doc(db, 'chats', 'GLOBAL_MAIN_SERVER');
+            const msSnap = await getDoc(msRef);
+            if(!msSnap.exists()) {
+                await setDoc(msRef, { name: 'Main Server', isGroup: true, members: [] });
+            }
+            
+            openChat('GLOBAL_MAIN_SERVER', '# general', true, true);
+            renderServerMembers();
+        });
+
+        document.getElementById('add-friend-header-btn').addEventListener('click', async () => {
+            const uid = prompt("Enter the User ID of the friend you want to add:");
+            if (!uid || uid === auth.currentUser.uid) return;
+            
+            // Check if user exists (in a real app we'd query, here we just try to update)
+            try {
+                await updateDoc(doc(db, 'users', auth.currentUser.uid), { friends: arrayUnion(uid) });
+                await updateDoc(doc(db, 'users', uid), { friends: arrayUnion(auth.currentUser.uid) });
+                if (!currentUserData.friends.includes(uid)) {
+                    currentUserData.friends.push(uid);
+                }
+                alert("Friend added!");
+                renderFriendsList();
+            } catch (err) {
+                alert("Failed to add friend. Make sure the UID is correct.");
+            }
+        });
+
+        function renderFriendsList() {
+            if (!currentUserData || !currentUserData.friends) return;
+            const container = document.getElementById('friends-list-container');
+            container.innerHTML = '';
+            document.getElementById('friends-count').textContent = currentUserData.friends.length;
+            
+            currentUserData.friends.forEach(friendId => {
+                const user = usersCache[friendId];
+                if (!user) return;
+                
+                const div = document.createElement('div');
+                div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 16px 10px; border-top: 1px solid var(--bg-secondary); cursor: pointer;';
+                div.className = 'friend-item';
+                div.onmouseover = () => div.style.background = 'rgba(79,84,92,0.16)';
+                div.onmouseout = () => div.style.background = 'transparent';
+                
+                div.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px;" onclick="document.dispatchEvent(new CustomEvent('openProfile', {detail: '${user.uid}'}))">
+                        <div class="channel-avatar" style="width: 32px; height: 32px;">
+                            <img src="${user.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png'}">
+                            <div class="status-dot ${user.status === 'online' ? 'online' : ''}"></div>
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-weight: bold; font-size: 16px;">${user.displayName}</span>
+                            <span style="font-size: 12px; color: var(--text-muted);">${user.status === 'online' ? 'Online' : 'Offline'}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-secondary); display: flex; justify-content: center; align-items: center; cursor: pointer;" title="Message" onclick="document.dispatchEvent(new CustomEvent('messageUser', {detail: '${user.uid}'}))">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--text-normal)"><path d="M4.79805 3C3.80445 3 2.99805 3.8055 2.99805 4.8V15.6C2.99805 16.5936 3.80445 17.4 4.79805 17.4H7.49805V21L11.098 17.4H19.198C20.1925 17.4 20.998 16.5936 20.998 15.6V4.8C20.998 3.8055 20.1925 3 19.198 3H4.79805Z"/></svg>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        document.addEventListener('messageUser', async (e) => {
+            const uid = e.detail;
+            const user = usersCache[uid];
+            if(!user) return;
+            
+            // Find or create DM
+            const q = query(collection(db, 'chats'), where('isGroup', '==', false), where('members', 'array-contains', auth.currentUser.uid));
+            const snap = await getDocs(q);
+            let existingChatId = null;
+            snap.forEach(doc => {
+                const chat = doc.data();
+                if (chat.members.includes(uid)) {
+                    existingChatId = doc.id;
+                }
+            });
+
+            if (existingChatId) {
+                openChat(existingChatId, user.displayName, false, false, uid);
+            } else {
+                const newChatRef = await addDoc(collection(db, 'chats'), {
+                    isGroup: false,
+                    members: [auth.currentUser.uid, uid],
+                    updatedAt: serverTimestamp()
+                });
+                openChat(newChatRef.id, user.displayName, false, false, uid);
+            }
+        });
+
+        function renderServerMembers() {
+            if(!isMainServerView) return;
+            const onlineList = document.getElementById('online-list');
+            const offlineList = document.getElementById('offline-list');
+            onlineList.innerHTML = ''; offlineList.innerHTML = '';
+            let onCount = 0, offCount = 0;
+
+            Object.values(usersCache).forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'channel';
+                div.innerHTML = `
+                    <div class="channel-avatar">
+                        <img src="${u.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png'}">
+                        <div class="status-dot ${u.status === 'online' ? 'online' : ''}"></div>
+                    </div>
+                    <span class="discover-name">${u.displayName}</span>
+                `;
+                applyUserStyle(div.querySelector('.discover-name'), u);
+                div.onclick = () => openProfile(u.uid);
+
+                if(u.status === 'online') { onlineList.appendChild(div); onCount++; }
+                else { offlineList.appendChild(div); offCount++; }
+            });
+            document.getElementById('online-count').textContent = onCount;
+            document.getElementById('offline-count').textContent = offCount;
+        }
+
+        // DMs & Groups
+        function loadDMs() {
+            if(unsubChats) unsubChats();
+            const q = query(collection(db, 'chats'), where('members', 'array-contains', auth.currentUser.uid));
+            unsubChats = onSnapshot(q, (snap) => {
+                if(isMainServerView) return; // Don't render DMs if in main server
+                const list = document.getElementById('chat-list');
+                list.innerHTML = '';
+                snap.forEach(docSnap => {
+                    if(docSnap.id === 'GLOBAL_MAIN_SERVER') return; // Hide main server from DMs
+                    const chat = docSnap.data();
+                    const div = document.createElement('div');
+                    div.className = `channel ${currentChatId === docSnap.id ? 'active' : ''}`;
+                    
+                    let chatName = chat.name || 'Unnamed Group';
+                    let chatIcon = 'https://cdn.discordapp.com/embed/avatars/0.png';
+                    let otherUid = null;
+
+                    if (!chat.isGroup) {
+                        otherUid = chat.members.find(id => id !== auth.currentUser.uid) || auth.currentUser.uid;
+                        const otherUser = usersCache[otherUid];
+                        chatName = otherUser ? otherUser.displayName : 'Unknown User';
+                        if(otherUser && otherUser.photoURL) chatIcon = otherUser.photoURL;
+                    }
+
+                    div.innerHTML = `
+                        <div class="channel-avatar">
+                            <img src="${chatIcon}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                            ${!chat.isGroup && usersCache[otherUid] ? `<div class="status-dot ${usersCache[otherUid].status === 'online' ? 'online' : ''}"></div>` : ''}
+                        </div>
+                        <span>${chatName}</span>
+                    `;
+                    div.onclick = () => openChat(docSnap.id, chatName, chat.isGroup, false, otherUid);
+                    list.appendChild(div);
+                });
+            });
+        }
+
+        document.getElementById('create-group-btn').addEventListener('click', async () => {
+            const name = prompt("Enter Group Name:");
+            if(!name) return;
+            await addDoc(collection(db, 'chats'), {
+                name: name,
+                isGroup: true,
+                members: [auth.currentUser.uid],
+                updatedAt: serverTimestamp()
+            });
+        });
+
+        // Messaging
+        let cachedMessages = [];
+        function openChat(chatId, chatName, isGroup, isMainServer = false, otherUid = null) {
+            document.getElementById('chat-area').classList.remove('hidden');
+            document.getElementById('friends-area').classList.add('hidden');
+            
+            currentChatId = chatId;
+            document.getElementById('current-chat-name').textContent = chatName;
+            const input = document.getElementById('message-input');
+            
+            // Friend Check for DMs
+            if (!isGroup && !isMainServer && otherUid && otherUid !== auth.currentUser.uid) {
+                if (!isFriend(otherUid)) {
+                    input.disabled = true;
+                    input.placeholder = "You must be friends to message this user.";
+                } else {
+                    input.disabled = false;
+                    input.placeholder = `Message ${chatName}...`;
+                }
+            } else {
+                input.disabled = false;
+                input.placeholder = `Message ${chatName}...`;
+            }
+            
+            const addUserBtn = document.getElementById('add-user-to-group');
+            if(isGroup && !isMainServer) {
+                addUserBtn.classList.remove('hidden');
+                addUserBtn.onclick = async () => {
+                    const uid = prompt("Enter User ID to add to group:\n(You can find UIDs in user profiles)");
+                    if(uid) {
+                        await updateDoc(doc(db, 'chats', chatId), { members: arrayUnion(uid) });
+                        alert("Added!");
+                    }
+                };
+            } else {
+                addUserBtn.classList.add('hidden');
+            }
+
+            if(!isMainServer) {
+                document.querySelectorAll('.channel').forEach(el => el.classList.remove('active'));
+            }
+            
+            if(unsubMessages) unsubMessages();
+            const q = query(collection(db, `chats/${chatId}/messages`), orderBy('createdAt', 'asc'));
+            unsubMessages = onSnapshot(q, (snap) => {
+                cachedMessages = [];
+                snap.forEach(d => cachedMessages.push(d.data()));
+                renderMessagesCache();
+            });
+        }
+
+        function renderMessagesCache() {
+            const container = document.getElementById('messages-container');
+            container.innerHTML = '';
+            cachedMessages.forEach(msg => {
+                const user = usersCache[msg.senderId] || { displayName: 'Unknown', photoURL: '' };
+                const div = document.createElement('div');
+                div.className = 'message';
+                
+                const time = msg.createdAt ? new Date(msg.createdAt.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Sending...';
+
+                div.innerHTML = `
+                    <div class="msg-avatar" onclick="document.dispatchEvent(new CustomEvent('openProfile', {detail: '${msg.senderId}'}))">
+                        <img src="${user.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png'}">
+                    </div>
+                    <div class="msg-content">
+                        <div class="msg-header">
+                            <span class="msg-author" onclick="document.dispatchEvent(new CustomEvent('openProfile', {detail: '${msg.senderId}'}))">${user.displayName}</span>
+                            <span class="msg-time">${time}</span>
+                        </div>
+                        <div class="msg-text">${msg.text}</div>
+                    </div>
+                `;
+                applyUserStyle(div.querySelector('.msg-author'), user);
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Custom event listener to open profile from inside rendered HTML
+        document.addEventListener('openProfile', (e) => openProfile(e.detail));
+
+        document.getElementById('message-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if(!text || !currentChatId || input.disabled) return;
+            input.value = '';
+            
+            await addDoc(collection(db, `chats/${currentChatId}/messages`), {
+                text: text,
+                senderId: auth.currentUser.uid,
+                createdAt: serverTimestamp()
+            });
+            if(currentChatId !== 'GLOBAL_MAIN_SERVER') {
+                await updateDoc(doc(db, 'chats', currentChatId), { updatedAt: serverTimestamp() });
+            }
+        });
+
+    </script>
+</body>
+</html>
